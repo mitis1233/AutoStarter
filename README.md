@@ -27,3 +27,9 @@
 2. 點選輸出設定檔按鈕儲存.autostart設定檔
 
 3. 開啟.autostart設定檔即可啟動自定義的自動化啟動流程
+
+## 下載 Download
+
+[獨立式](https://github.com/mitis1233/AutoStarter/releases/latest/download/AutoStarter_win-x64_Full.zip)
+
+[相依 需下載Net9](https://github.com/mitis1233/AutoStarter/releases/latest/download/AutoStarter_win-x64.zip)
