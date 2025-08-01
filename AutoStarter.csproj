@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.26100.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Authors>$(AssemblyName)</Authors>
+    <SupportedOSPlatformVersion>10.0.26100.0</SupportedOSPlatformVersion>
+    <ApplicationIcon>ICON.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="ActionTemplateSelector.cs" />
+    <Compile Remove="EditAppActionWindow.xaml.cs" />
+    <Compile Remove="InputBoxWindow.xaml.cs" />
+    <Page Remove="EditAppActionWindow.xaml" />
+    <Page Remove="InputBoxWindow.xaml" />
+
+  </ItemGroup>
+
+</Project>
