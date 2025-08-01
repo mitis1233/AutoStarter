@@ -22,10 +22,11 @@ namespace AutoStarter
                 try
                 {
                     string json = File.ReadAllText(filePath);
-                    var options = new JsonSerializerOptions
+                    JsonSerializerOptions jsonSerializerOptions = new()
                     {
                         Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
                     };
+                    var options = jsonSerializerOptions;
                     var actions = JsonSerializer.Deserialize<List<ActionItem>>(json, options);
                     if (actions != null)
                     {
@@ -83,7 +84,7 @@ namespace AutoStarter
             }
         }
 
-        private void SetDefaultAudioDevice(string deviceId)
+        private static void SetDefaultAudioDevice(string deviceId)
         {
             Log("Executing action: SetAudioDevice");
             Log($"Attempting to set audio device. ID: {deviceId}");
@@ -104,7 +105,7 @@ namespace AutoStarter
             }
         }
 
-        private void DisableAudioDevice(string deviceId)
+        private static void DisableAudioDevice(string deviceId)
         {
             Log("Executing action: DisableAudioDevice");
             Log($"Attempting to disable audio device. ID: {deviceId}");
@@ -121,7 +122,7 @@ namespace AutoStarter
             }
         }
 
-        private void EnableAudioDevice(string deviceId)
+        private static void EnableAudioDevice(string deviceId)
         {
             Log("Executing action: EnableAudioDevice");
             Log($"Attempting to enable audio device. ID: {deviceId}");
@@ -138,7 +139,7 @@ namespace AutoStarter
             }
         }
 
-        private void Log(string message)
+        private static void Log(string message)
         {
             try
             {

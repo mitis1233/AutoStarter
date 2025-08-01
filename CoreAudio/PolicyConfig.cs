@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace AutoStarter.CoreAudio
 {
     [ComImport, Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
-    internal class _PolicyConfigClient
+    internal class PolicyConfigClientCom
     {
     }
 
@@ -55,7 +55,7 @@ namespace AutoStarter.CoreAudio
 
         public PolicyConfigClient()
         {
-            _policyConfig = new _PolicyConfigClient() as IPolicyConfig;
+            _policyConfig = new PolicyConfigClientCom() as IPolicyConfig ?? throw new InvalidOperationException($"Failed to create {nameof(IPolicyConfig)} instance.");
         }
 
         public void SetDefaultEndpoint(string deviceId, ERole role)

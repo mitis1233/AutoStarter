@@ -18,7 +18,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        ActionItems = new ObservableCollection<ActionItem>();
+        ActionItems = [];
 
         DataContext = this;
     }
@@ -62,7 +62,7 @@ public partial class MainWindow : Window
             return (playback, recording);
         });
 
-        if (!playbackDevices.Any() && !recordingDevices.Any())
+        if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
         {
             MessageBox.Show("找不到任何已啟用的音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
@@ -97,7 +97,7 @@ public partial class MainWindow : Window
             return (playback, recording);
         });
 
-        if (!playbackDevices.Any() && !recordingDevices.Any())
+        if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
         {
             MessageBox.Show("找不到任何已啟用的音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
@@ -156,7 +156,8 @@ public partial class MainWindow : Window
 
         if (saveFileDialog.ShowDialog() == true)
         {
-            var options = new JsonSerializerOptions { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
+            JsonSerializerOptions jsonSerializerOptions = new() { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
+            var options = jsonSerializerOptions;
             string json = JsonSerializer.Serialize(ActionItems, options);
             await File.WriteAllTextAsync(saveFileDialog.FileName, json);
             MessageBox.Show("設定檔已儲存！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
