@@ -1,12 +1,10 @@
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows;
 using Microsoft.Win32;
 using NAudio.CoreAudioApi;
-using AutoStarter.CoreAudio;
 
 namespace AutoStarter;
 
@@ -36,18 +34,17 @@ public partial class MainWindow : Window
             {
                 Type = ActionType.LaunchApplication,
                 FilePath = openFileDialog.FileName,
-                Arguments = "",
-                IsEnabled = true
+                Arguments = ""
             });
         }
     }
 
     private void AddDelay_Click(object sender, RoutedEventArgs e)
     {
-        ActionItems.Add(new ActionItem { Type = ActionType.Delay, DelaySeconds = 5, IsEnabled = true });
+        ActionItems.Add(new ActionItem { Type = ActionType.Delay, DelaySeconds = 5 });
     }
 
-        private async void AddAudio_Click(object sender, RoutedEventArgs e)
+    private async void AddAudio_Click(object sender, RoutedEventArgs e)
     {
         var enumerator = new MMDeviceEnumerator();
 
@@ -76,13 +73,12 @@ public partial class MainWindow : Window
             {
                 Type = ActionType.SetAudioDevice,
                 AudioDeviceId = selectedDevice.ID,
-                AudioDeviceName = selectedDevice.FriendlyName,
-                IsEnabled = true
+                AudioDeviceName = selectedDevice.FriendlyName
             });
         }
     }
 
-        private async void AddDisableAudio_Click(object sender, RoutedEventArgs e)
+    private async void AddDisableAudio_Click(object sender, RoutedEventArgs e)
     {
         var enumerator = new MMDeviceEnumerator();
 
@@ -111,8 +107,7 @@ public partial class MainWindow : Window
             {
                 Type = ActionType.DisableAudioDevice,
                 AudioDeviceId = selectedDevice.ID,
-                AudioDeviceName = selectedDevice.FriendlyName,
-                IsEnabled = true
+                AudioDeviceName = selectedDevice.FriendlyName
             });
         }
     }

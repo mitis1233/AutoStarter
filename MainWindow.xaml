@@ -22,7 +22,23 @@
                   SelectionMode="Single"
                   HeadersVisibility="Column" SelectionChanged="ActionsDataGrid_SelectionChanged">
             <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="啟用" Binding="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}" Width="Auto"/>
+                <DataGridCheckBoxColumn Header="最小化" Binding="{Binding MinimizeWindow, UpdateSourceTrigger=PropertyChanged}" Width="Auto">
+                    <DataGridCheckBoxColumn.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Type}" Value="Delay">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="SetAudioDevice">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="DisableAudioDevice">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGridCheckBoxColumn.CellStyle>
+                </DataGridCheckBoxColumn>
                 <DataGridTextColumn Header="類型" Binding="{Binding TypeString}" IsReadOnly="True" Width="Auto"/>
                 <DataGridTextColumn Header="名稱" Binding="{Binding Description}" IsReadOnly="True" Width="*"/>
                 <DataGridTextColumn Header="檔案路徑" Binding="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" Width="2*">

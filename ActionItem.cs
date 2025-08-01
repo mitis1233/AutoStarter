@@ -17,11 +17,11 @@ public class ActionItem : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private bool _isEnabled = true;
-    public bool IsEnabled
+    private bool _minimizeWindow = false;
+    public bool MinimizeWindow
     {
-        get => _isEnabled;
-        set => SetField(ref _isEnabled, value);
+        get => _minimizeWindow;
+        set => SetField(ref _minimizeWindow, value);
     }
 
     private ActionType _type;

@@ -10,6 +10,7 @@
     <Authors>$(AssemblyName)</Authors>
     <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
     <ApplicationIcon>ICON.ico</ApplicationIcon>
+    <Version>1.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

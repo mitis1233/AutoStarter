@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Threading.Tasks;
 using System.Windows;
 using AutoStarter.CoreAudio;
 using System.Text.Json;
@@ -38,7 +35,18 @@ namespace AutoStarter
                                     Log($"Executing action: LaunchApp - {action.FilePath}");
                                     if (!string.IsNullOrEmpty(action.FilePath) && File.Exists(action.FilePath))
                                     {
-                                        Process.Start(new ProcessStartInfo(action.FilePath) { Arguments = action.Arguments, UseShellExecute = true });
+                                        var startInfo = new ProcessStartInfo(action.FilePath)
+                                        {
+                                            Arguments = action.Arguments,
+                                            UseShellExecute = true
+                                        };
+
+                                        if (action.MinimizeWindow)
+                                        {
+                                            startInfo.WindowStyle = ProcessWindowStyle.Minimized;
+                                        }
+
+                                        Process.Start(startInfo);
                                     }
                                     else
                                     {
