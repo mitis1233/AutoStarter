@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:AutoStarter"
         mc:Ignorable="d"
         Title="自動啟動編輯器"
-        Height="600" Width="800">
+        Height="600" Width="864">
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
@@ -19,8 +19,18 @@
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
                   CanUserSortColumns="False"
-                  SelectionMode="Single"
+                  SelectionMode="Extended"
                   HeadersVisibility="Column" SelectionChanged="ActionsDataGrid_SelectionChanged">
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="編輯" Click="Edit_Click"/>
+                    <Separator />
+                    <MenuItem Header="上移" Click="MoveUp_Click"/>
+                    <MenuItem Header="下移" Click="MoveDown_Click"/>
+                    <Separator />
+                    <MenuItem Header="移除" Click="Delete_Click"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="最小化" Binding="{Binding MinimizeWindow, UpdateSourceTrigger=PropertyChanged}" Width="Auto">
                     <DataGridCheckBoxColumn.CellStyle>
@@ -118,6 +128,7 @@
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="匯入設定檔" Click="ImportProfile_Click" Margin="5" Padding="5"/>
                 <Button Content="輸出設定檔" Click="SaveProfile_Click" Margin="5" Padding="5" FontWeight="Bold"/>
             </StackPanel>
         </Grid>

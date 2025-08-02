@@ -43,7 +43,7 @@ namespace AutoStarter
             }
             else
             {
-                MessageBox.Show("請選擇一個裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("請選擇一個裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
     }

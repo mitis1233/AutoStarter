@@ -10,6 +10,12 @@ namespace AutoStarter;
 
 public partial class MainWindow : Window
 {
+    private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
+    {
+        Converters = { new JsonStringEnumConverter() },
+        WriteIndented = true
+    };
+
     public ObservableCollection<ActionItem> ActionItems { get; set; }
 
 
@@ -61,7 +67,7 @@ public partial class MainWindow : Window
 
         if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
         {
-            MessageBox.Show("找不到任何已啟用的音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("找不到任何已啟用的音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.None);
             return;
         }
 
@@ -95,7 +101,7 @@ public partial class MainWindow : Window
 
         if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
         {
-            MessageBox.Show("找不到任何已啟用的音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("找不到任何已啟用的音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.None);
             return;
         }
 
@@ -140,6 +146,87 @@ public partial class MainWindow : Window
         }
     }
 
+
+
+    private void Delete_Click(object sender, RoutedEventArgs e)
+    {
+        if (ActionsDataGrid.SelectedItem is not ActionItem selectedItem) return;
+
+        if (ActionsDataGrid.ItemsSource is ObservableCollection<ActionItem> items)
+        {
+            items.Remove(selectedItem);
+        }
+    }
+
+    private async void Edit_Click(object sender, RoutedEventArgs e)
+    {
+        if (ActionsDataGrid.SelectedItem is not ActionItem selectedItem) return;
+
+        switch (selectedItem.Type)
+        {
+            case ActionType.SetAudioDevice:
+            case ActionType.DisableAudioDevice:
+                var enumerator = new MMDeviceEnumerator();
+                var (playbackDevices, recordingDevices) = await Task.Run(() =>
+                {
+                    var playback = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)
+                                             .Select(d => new DeviceInfo { ID = d.ID, FriendlyName = d.FriendlyName })
+                                             .ToList();
+                    var recording = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)
+                                              .Select(d => new DeviceInfo { ID = d.ID, FriendlyName = d.FriendlyName })
+                                              .ToList();
+                    return (playback, recording);
+                });
+
+                var selectorWindow = new AudioDeviceSelectorWindow(playbackDevices, recordingDevices) { Owner = this };
+                if (selectorWindow.ShowDialog() == true && selectorWindow.SelectedDevice != null)
+                {
+                    selectedItem.AudioDeviceId = selectorWindow.SelectedDevice.ID;
+                    selectedItem.AudioDeviceName = selectorWindow.SelectedDevice.FriendlyName;
+                }
+                break;
+
+            default:
+                var editWindow = new EditActionWindow(selectedItem)
+                {
+                    Owner = this
+                };
+                editWindow.ShowDialog();
+                break;
+        }
+    }
+
+    private void ImportProfile_Click(object sender, RoutedEventArgs e)
+    {
+        var openFileDialog = new OpenFileDialog
+        {
+            Filter = "AutoStarter 設定檔 (*.autostart)|*.autostart|所有檔案 (*.*)|*.*",
+            Title = "匯入設定檔"
+        };
+
+        if (openFileDialog.ShowDialog() == true)
+        {
+            try
+            {
+                var jsonString = File.ReadAllText(openFileDialog.FileName);
+                var importedItems = JsonSerializer.Deserialize<List<ActionItem>>(jsonString, _jsonSerializerOptions);
+
+                if (importedItems != null)
+                {
+                    foreach (var item in importedItems)
+                    {
+                        ActionItems.Add(item);
+                    }
+
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"匯入設定檔時發生錯誤：\n{ex.Message}", "匯入失敗", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
     private async void SaveProfile_Click(object sender, RoutedEventArgs e)
     {
         var saveFileDialog = new SaveFileDialog
@@ -151,11 +238,9 @@ public partial class MainWindow : Window
 
         if (saveFileDialog.ShowDialog() == true)
         {
-            JsonSerializerOptions jsonSerializerOptions = new() { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
-            var options = jsonSerializerOptions;
-            string json = JsonSerializer.Serialize(ActionItems, options);
-            await File.WriteAllTextAsync(saveFileDialog.FileName, json);
-            MessageBox.Show("設定檔已儲存！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            var jsonString = JsonSerializer.Serialize(ActionItems, _jsonSerializerOptions);
+            await File.WriteAllTextAsync(saveFileDialog.FileName, jsonString);
+            MessageBox.Show("設定檔已儲存！", "成功", MessageBoxButton.OK, MessageBoxImage.None);
         }
     }
 
@@ -177,11 +262,11 @@ public partial class MainWindow : Window
             key.SetValue("", $"\"{exePath}\" \"%1\"");
             key.Close();
 
-            MessageBox.Show("檔案關聯已成功註冊！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("檔案關聯已成功註冊！", "成功", MessageBoxButton.OK, MessageBoxImage.None);
         }
         catch (System.Exception ex)
         {
-            MessageBox.Show($"註冊檔案關聯失敗：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"註冊檔案關聯失敗：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.None);
         }
     }
 
@@ -191,11 +276,11 @@ public partial class MainWindow : Window
         {
             Registry.ClassesRoot.DeleteSubKeyTree(".autostart", false);
             Registry.ClassesRoot.DeleteSubKeyTree("AutoStarter.Profile", false);
-            MessageBox.Show("檔案關聯已成功移除！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("檔案關聯已成功移除！", "成功", MessageBoxButton.OK, MessageBoxImage.None);
         }
         catch (System.Exception ex)
         {
-            MessageBox.Show($"移除檔案關聯失敗：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"移除檔案關聯失敗：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.None);
         }
     }
 

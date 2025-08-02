@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using AutoStarter.CoreAudio;
 using System.Text.Json;
@@ -15,7 +16,7 @@ namespace AutoStarter
             if (e.Args.Length > 0 && e.Args[0].EndsWith(".autostart"))
             {
                 string filePath = e.Args[0];
-                Log($"Found .autostart file: {filePath}");
+                //Log($"找到 .autostart 檔案：{filePath}");
                 try
                 {
                     string json = File.ReadAllText(filePath);
@@ -32,7 +33,7 @@ namespace AutoStarter
                             switch (action.Type)
                             {
                                 case ActionType.LaunchApplication:
-                                    Log($"Executing action: LaunchApp - {action.FilePath}");
+                                    //Log($"執行操作：啟動應用程式 - {action.FilePath}");
                                     if (!string.IsNullOrEmpty(action.FilePath) && File.Exists(action.FilePath))
                                     {
                                         var startInfo = new ProcessStartInfo(action.FilePath)
@@ -41,20 +42,55 @@ namespace AutoStarter
                                             UseShellExecute = true
                                         };
 
+                                        // First, try the standard way.
                                         if (action.MinimizeWindow)
                                         {
                                             startInfo.WindowStyle = ProcessWindowStyle.Minimized;
                                         }
 
-                                        Process.Start(startInfo);
+                                        var process = Process.Start(startInfo);
+
+                                        // If minimization is requested, wait for the window and force it if necessary.
+                                        if (action.MinimizeWindow && process != null)
+                                        {
+                                            try
+                                            {
+                                                // Wait until the window handle is available, with a timeout.
+                                                var stopwatch = Stopwatch.StartNew();
+                                                const int timeoutMs = 15000;
+                                                while (process.MainWindowHandle == IntPtr.Zero && stopwatch.ElapsedMilliseconds < timeoutMs)
+                                                {
+                                                    await Task.Delay(250);
+                                                    process.Refresh();
+                                                }
+
+                                                if (process.MainWindowHandle != IntPtr.Zero)
+                                                {
+                                                    // If the window is not already minimized, force it.
+                                                    if (!IsIconic(process.MainWindowHandle))
+                                                    {
+                                                        //Log($"應用程式 {action.FilePath} 的視窗在啟動時未最小化。正在強制最小化。");
+                                                        ShowWindow(process.MainWindowHandle, SW_MINIMIZE);
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    //Log($"在 {timeoutMs} 毫秒內找不到應用程式 {action.FilePath} 的主視窗控制代碼。");
+                                                }
+                                            }
+                                            catch (Exception )//ex)
+                                            {
+                                                //Log($"嘗試最小化 {action.FilePath} 時發生錯誤：{ex.Message}");
+                                            }
+                                        }
                                     }
                                     else
                                     {
-                                        Log($"App path not found or invalid: {action.FilePath}");
+                                        //Log($"找不到應用程式路徑或路徑無效：{action.FilePath}");
                                     }
                                     break;
                                 case ActionType.Delay:
-                                    Log($"Executing action: Delay for {action.DelaySeconds} seconds");
+                                    //Log($"執行操作：延遲 {action.DelaySeconds} 秒");
                                     await Task.Delay(TimeSpan.FromSeconds(action.DelaySeconds));
                                     break;
                                 case ActionType.SetAudioDevice:
@@ -77,12 +113,12 @@ namespace AutoStarter
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception )//ex)
                 {
-                    Log($"Error processing .autostart file: {ex.Message}");
+                    //Log($"處理 .autostart 檔案時發生錯誤：{ex.Message}");
                 }
 
-                Log("Finished processing .autostart file. Shutting down.");
+                //Log("已完成處理 .autostart 檔案。正在關閉程式。");
                 Shutdown();
             }
             else
@@ -94,70 +130,81 @@ namespace AutoStarter
 
         private static void SetDefaultAudioDevice(string deviceId)
         {
-            Log("Executing action: SetAudioDevice");
-            Log($"Attempting to set audio device. ID: {deviceId}");
+            //Log("執行操作：設定音訊裝置");
+            //Log($"正在嘗試設定音訊裝置。ID：{deviceId}");
             try
             {
                 var client = new PolicyConfigClient();
-                Log("Setting default endpoint for Console.");
+                //Log("正在為「主控台」設定預設端點。");
                 client.SetDefaultEndpoint(deviceId, ERole.eConsole);
-                Log("Setting default endpoint for Multimedia.");
+                //Log("正在為「多媒體」設定預設端點。");
                 client.SetDefaultEndpoint(deviceId, ERole.eMultimedia);
-                Log("Setting default endpoint for Communications.");
+                //Log("正在為「通訊」設定預設端點。");
                 client.SetDefaultEndpoint(deviceId, ERole.eCommunications);
-                Log("Successfully set audio device.");
+                //Log("成功設定音訊裝置。");
             }
-            catch (Exception ex)
+            catch (Exception )//ex)
             {
-                Log($"Failed to set audio device: {ex.Message}");
+                //Log($"設定音訊裝置失敗：{ex.Message}");
             }
         }
 
         private static void DisableAudioDevice(string deviceId)
         {
-            Log("Executing action: DisableAudioDevice");
-            Log($"Attempting to disable audio device. ID: {deviceId}");
+            //Log("執行操作：停用音訊裝置");
+            //Log($"正在嘗試停用音訊裝置。ID：{deviceId}");
             try
             {
                 var client = new PolicyConfigClient();
-                Log("Disabling audio device.");
+                //Log("正在停用音訊裝置。");
                 client.DisableEndpoint(deviceId);
-                Log("Successfully disabled audio device.");
+                //Log("成功停用音訊裝置。");
             }
-            catch (Exception ex)
+            catch (Exception )//ex)
             {
-                Log($"Failed to disable audio device: {ex.Message}");
+                //Log($"停用音訊裝置失敗：{ex.Message}");
             }
         }
 
         private static void EnableAudioDevice(string deviceId)
         {
-            Log("Executing action: EnableAudioDevice");
-            Log($"Attempting to enable audio device. ID: {deviceId}");
+            //Log("執行操作：啟用音訊裝置");
+            //Log($"正在嘗試啟用音訊裝置。ID：{deviceId}");
             try
             {
                 var client = new PolicyConfigClient();
-                Log("Enabling audio endpoint.");
+                //Log("正在啟用音訊端點。");
                 client.EnableEndpoint(deviceId);
-                Log("Successfully enabled audio device.");
+                //Log("成功啟用音訊裝置。");
             }
-            catch (Exception ex)
+            catch (Exception )//ex)
             {
-                Log($"Failed to enable audio device: {ex.Message}");
+                //Log($"啟用音訊裝置失敗：{ex.Message}");
             }
         }
 
-        private static void Log(string message)
-        {
-            try
-            {
-                string logFilePath = Path.Combine(AppContext.BaseDirectory, "autostarter.log");
-                File.AppendAllText(logFilePath, $"{DateTime.Now:yyyy/M/d HH:mm:ss}: {message}{Environment.NewLine}");
-            }
-            catch
-            {
-                // Ignore logging errors
-            }
-        }
+        // Win32 API functions
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool IsIconic(IntPtr hWnd);
+
+        private const int SW_MINIMIZE = 6;
+
+        //private static void Log(string message)
+        //{
+        //    try
+        //    {
+        //        string logFilePath = Path.Combine(AppContext.BaseDirectory, "autostarter.log");
+        //        File.AppendAllText(logFilePath, $"{DateTime.Now:yyyy/M/d HH:mm:ss}: {message}{Environment.NewLine}");
+        //    }
+        //    catch
+        //    {
+        //        // Ignore logging errors
+        //    }
+        //}
     }
 }
