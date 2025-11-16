@@ -50,38 +50,11 @@ namespace AutoStarter
 
                                         var process = Process.Start(startInfo);
 
-                                        // If minimization is requested, wait for the window and force it if necessary.
+                                        // If minimization is requested, handle it asynchronously in the background
                                         if (action.MinimizeWindow && process != null)
                                         {
-                                            try
-                                            {
-                                                // Wait until the window handle is available, with a timeout.
-                                                var stopwatch = Stopwatch.StartNew();
-                                                const int timeoutMs = 15000;
-                                                while (process.MainWindowHandle == IntPtr.Zero && stopwatch.ElapsedMilliseconds < timeoutMs)
-                                                {
-                                                    await Task.Delay(250);
-                                                    process.Refresh();
-                                                }
-
-                                                if (process.MainWindowHandle != IntPtr.Zero)
-                                                {
-                                                    // If the window is not already minimized, force it.
-                                                    if (!IsIconic(process.MainWindowHandle))
-                                                    {
-                                                        //Log($"應用程式 {action.FilePath} 的視窗在啟動時未最小化。正在強制最小化。");
-                                                        ShowWindow(process.MainWindowHandle, SW_MINIMIZE);
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    //Log($"在 {timeoutMs} 毫秒內找不到應用程式 {action.FilePath} 的主視窗控制代碼。");
-                                                }
-                                            }
-                                            catch (Exception )//ex)
-                                            {
-                                                //Log($"嘗試最小化 {action.FilePath} 時發生錯誤：{ex.Message}");
-                                            }
+                                            // Fire and forget: minimize in background without blocking the main flow
+                                            _ = MinimizeWindowAsync(process);
                                         }
                                     }
                                     else
@@ -183,6 +156,92 @@ namespace AutoStarter
             }
         }
 
+        private static async Task MinimizeWindowAsync(Process process)
+        {
+            if (process == null || process.HasExited)
+                return;
+
+            try
+            {
+                const int totalWaitMs = 5000;    // 總等待時間 5 秒
+                const int checkIntervalMs = 100;  // 檢查間隔 100ms
+                int elapsedMs = 0;
+                
+                // 等待視窗句柄可用
+                while (process.MainWindowHandle == IntPtr.Zero && elapsedMs < totalWaitMs)
+                {
+                    await Task.Delay(checkIntervalMs);
+                    elapsedMs += checkIntervalMs;
+                    
+                    try 
+                    {
+                        if (process.HasExited)
+                            return;
+                            
+                        process.Refresh();
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // 進程已結束或無法存取
+                        return;
+                    }
+                }
+
+                // 如果還是沒有視窗句柄，放棄嘗試
+                if (process.MainWindowHandle == IntPtr.Zero)
+                    return;
+
+                // 短暫等待確保視窗完全初始化
+                await Task.Delay(300);
+
+                // 最多重試 3 次，使用指數退避策略
+                for (int attempt = 0; attempt < 3; attempt++)
+                {
+                    try
+                    {
+                        if (process.HasExited)
+                            return;
+
+                        process.Refresh();
+                        
+                        // 檢查視窗是否已經最小化
+                        if (IsIconic(process.MainWindowHandle) || process.MainWindowHandle == IntPtr.Zero)
+                            break;
+
+                        // 嘗試最小化
+                        if (!ShowWindow(process.MainWindowHandle, SW_MINIMIZE))
+                        {
+                            // 如果失敗，記錄錯誤碼（如果需要可以取消註解）
+                            // int error = Marshal.GetLastWin32Error();
+                            // Log($"Minimize failed with error code: {error}");
+                        }
+                        
+                        // 指數退避：150ms, 300ms
+                        if (attempt < 2)
+                            await Task.Delay(150 * (int)Math.Pow(2, attempt));
+                    }
+                    catch (Exception) when (IsProcessExitedOrInaccessible(process))
+                    {
+                        // 進程已結束或無法存取，直接返回
+                        return;
+                    }
+                    catch (Exception ex) when (ex is ObjectDisposedException || 
+                                            ex is InvalidOperationException ||
+                                            ex is System.ComponentModel.Win32Exception)
+                    {
+                        // 忽略這些已知的異常類型，並在最後一次嘗試時重新拋出
+                        if (attempt == 2)
+                            throw;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // 記錄未捕獲的異常（如果需要可以取消註解）
+                // Log($"Unexpected error in MinimizeWindowAsync: {ex}");
+            }
+        }
+
         // Win32 API functions
         [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -193,6 +252,22 @@ namespace AutoStarter
         private static partial bool IsIconic(IntPtr hWnd);
 
         private const int SW_MINIMIZE = 6;
+        
+        // 檢查進程是否已結束或無法存取
+        private static bool IsProcessExitedOrInaccessible(Process process)
+        {
+            if (process == null)
+                return true;
+                
+            try
+            {
+                return process.HasExited;
+            }
+            catch
+            {
+                return true;
+            }
+        }
 
         //private static void Log(string message)
         //{

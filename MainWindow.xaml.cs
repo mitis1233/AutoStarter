@@ -248,19 +248,28 @@ public partial class MainWindow : Window
     {
         try
         {
-                            string? exePath = Environment.ProcessPath;
-                if (string.IsNullOrEmpty(exePath))
-                {
-                    MessageBox.Show("無法取得主程式路徑。", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-            RegistryKey key = Registry.ClassesRoot.CreateSubKey(".autostart");
-            key.SetValue("", "AutoStarter.Profile");
-            key.Close();
+            string? exePath = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exePath))
+            {
+                MessageBox.Show("無法取得主程式路徑。", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
 
-            key = Registry.ClassesRoot.CreateSubKey("AutoStarter.Profile\\shell\\open\\command");
-            key.SetValue("", $"\"{exePath}\" \"%1\"");
-            key.Close();
+            using (RegistryKey key = Registry.ClassesRoot.CreateSubKey(".autostart"))
+            {
+                if (key != null)
+                {
+                    key.SetValue("", "AutoStarter.Profile");
+                }
+            }
+
+            using (RegistryKey key = Registry.ClassesRoot.CreateSubKey("AutoStarter.Profile\\shell\\open\\command"))
+            {
+                if (key != null)
+                {
+                    key.SetValue("", $"\"{exePath}\" \"%1\"");
+                }
+            }
 
             MessageBox.Show("檔案關聯已成功註冊！", "成功", MessageBoxButton.OK, MessageBoxImage.None);
         }
@@ -274,6 +283,7 @@ public partial class MainWindow : Window
     {
         try
         {
+            // DeleteSubKeyTree 不需要 using，因為它不返回 RegistryKey
             Registry.ClassesRoot.DeleteSubKeyTree(".autostart", false);
             Registry.ClassesRoot.DeleteSubKeyTree("AutoStarter.Profile", false);
             MessageBox.Show("檔案關聯已成功移除！", "成功", MessageBoxButton.OK, MessageBoxImage.None);
@@ -283,9 +293,9 @@ public partial class MainWindow : Window
             MessageBox.Show($"移除檔案關聯失敗：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.None);
         }
     }
-
-    private void ActionsDataGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void ActionsDataGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
 
     }
+
 }
