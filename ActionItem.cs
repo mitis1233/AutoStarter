@@ -21,7 +21,34 @@ public class ActionItem : INotifyPropertyChanged
     public bool MinimizeWindow
     {
         get => _minimizeWindow;
-        set => SetField(ref _minimizeWindow, value);
+        set
+        {
+            if (SetField(ref _minimizeWindow, value))
+            {
+                // 如果啟用最小化，則禁用強制最小化
+                if (value && _forceMinimizeWindow)
+                {
+                    ForceMinimizeWindow = false;
+                }
+            }
+        }
+    }
+
+    private bool _forceMinimizeWindow = false;
+    public bool ForceMinimizeWindow
+    {
+        get => _forceMinimizeWindow;
+        set
+        {
+            if (SetField(ref _forceMinimizeWindow, value))
+            {
+                // 如果啟用強制最小化，則禁用普通最小化
+                if (value && _minimizeWindow)
+                {
+                    MinimizeWindow = false;
+                }
+            }
+        }
     }
 
     private ActionType _type;

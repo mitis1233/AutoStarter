@@ -4,6 +4,9 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using AutoStarter.CoreAudio;
 using System.Text.Json;
+using System.Management;
+using System.Text;
+using System.Linq;
 
 namespace AutoStarter
 {
@@ -28,6 +31,8 @@ namespace AutoStarter
                     var actions = JsonSerializer.Deserialize<List<ActionItem>>(json, options);
                     if (actions != null)
                     {
+                        var minimizeTasks = new List<Task>();
+                        
                         foreach (var action in actions)
                         {
                             switch (action.Type)
@@ -43,7 +48,7 @@ namespace AutoStarter
                                         };
 
                                         // First, try the standard way.
-                                        if (action.MinimizeWindow)
+                                        if (action.MinimizeWindow || action.ForceMinimizeWindow)
                                         {
                                             startInfo.WindowStyle = ProcessWindowStyle.Minimized;
                                         }
@@ -51,10 +56,18 @@ namespace AutoStarter
                                         var process = Process.Start(startInfo);
 
                                         // If minimization is requested, handle it asynchronously in the background
-                                        if (action.MinimizeWindow && process != null)
+                                        if (process != null)
                                         {
-                                            // Fire and forget: minimize in background without blocking the main flow
-                                            _ = MinimizeWindowAsync(process);
+                                            if (action.ForceMinimizeWindow)
+                                            {
+                                                // 強制最小化：使用監控模式
+                                                minimizeTasks.Add(MinimizeWindowWithProcessMonitoringAsync(process));
+                                            }
+                                            else if (action.MinimizeWindow)
+                                            {
+                                                // 普通最小化
+                                                minimizeTasks.Add(MinimizeWindowAsync(process));
+                                            }
                                         }
                                     }
                                     else
@@ -83,6 +96,12 @@ namespace AutoStarter
                                     }
                                     break;
                             }
+                        }
+                        
+                        // 等待所有最小化任務完成
+                        if (minimizeTasks.Count > 0)
+                        {
+                            await Task.WhenAll(minimizeTasks);
                         }
                     }
                 }
@@ -235,7 +254,7 @@ namespace AutoStarter
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // 記錄未捕獲的異常（如果需要可以取消註解）
                 // Log($"Unexpected error in MinimizeWindowAsync: {ex}");
@@ -251,7 +270,34 @@ namespace AutoStarter
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool IsIconic(IntPtr hWnd);
 
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool IsWindow(IntPtr hWnd);
+
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        [LibraryImport("user32.dll")]
+        private static partial IntPtr GetWindow(IntPtr hWnd, int uCmd);
+
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
         private const int SW_MINIMIZE = 6;
+        private const int GW_OWNER = 4;
+        private const uint WM_SYSCOMMAND = 0x0112;
+        private const int SC_MINIMIZE = 0xF020;
         
         // 檢查進程是否已結束或無法存取
         private static bool IsProcessExitedOrInaccessible(Process process)
@@ -269,17 +315,242 @@ namespace AutoStarter
             }
         }
 
-        //private static void Log(string message)
-        //{
-        //    try
-        //    {
-        //        string logFilePath = Path.Combine(AppContext.BaseDirectory, "autostarter.log");
-        //        File.AppendAllText(logFilePath, $"{DateTime.Now:yyyy/M/d HH:mm:ss}: {message}{Environment.NewLine}");
-        //    }
-        //    catch
-        //    {
-        //        // Ignore logging errors
-        //    }
-        //}
+        private static async Task MinimizeWindowWithProcessMonitoringAsync(Process launcherProcess)
+        {
+            if (launcherProcess == null)
+                return;
+
+            try
+            {
+                var mainWindowHandle = await WaitForMainWindowHandleAsync(launcherProcess, 15000, 250);
+                
+                // 記錄初始窗口
+                var initialWindowHandles = new HashSet<IntPtr>(EnumerateAllVisibleWindows());
+                if (mainWindowHandle != IntPtr.Zero)
+                {
+                    initialWindowHandles.Add(mainWindowHandle);
+                }
+
+                // 監控新創建的窗口
+                IntPtr targetWindowHandle = IntPtr.Zero;
+                DateTime lastNewWindowTime = DateTime.MinValue;
+                bool foundNewWindow = false;  // 標記是否發現新窗口
+
+                for (int i = 0; i < 10; i++)  // 最多等待 10 秒
+                {
+                    await Task.Delay(1000);  // 每秒檢查一次
+
+                    try
+                    {
+                        var currentWindows = EnumerateAllVisibleWindows();
+                        var newWindows = currentWindows.Where(h => !initialWindowHandles.Contains(h)).ToList();
+
+                        if (newWindows.Count > 0)
+                        {
+                            foreach (var windowHandle in newWindows)
+                            {
+                                try
+                                {
+                                    if (IsWindow(windowHandle) && IsWindowVisible(windowHandle) && !IsSystemWindow(windowHandle))
+                                    {
+                                        foundNewWindow = true;  // 標記發現新窗口
+                                        if (targetWindowHandle == IntPtr.Zero)
+                                        {
+                                            targetWindowHandle = windowHandle;
+                                            lastNewWindowTime = DateTime.Now;
+                                        }
+                                        else if (windowHandle != targetWindowHandle)
+                                        {
+                                            targetWindowHandle = windowHandle;
+                                            lastNewWindowTime = DateTime.Now;
+                                        }
+                                    }
+                                }
+                                catch (Exception)
+                                {
+                                }
+                                finally
+                                {
+                                    initialWindowHandles.Add(windowHandle);
+                                }
+                            }
+                        }
+
+                        // 只有在確實發現新窗口，且已經 2 秒沒有發現新窗口時，才執行最小化
+                        if (foundNewWindow && targetWindowHandle != IntPtr.Zero && (DateTime.Now - lastNewWindowTime).TotalSeconds >= 2)
+                        {
+                            bool minimized = await ForceMinimizeWindowAsync(targetWindowHandle, "tracked window");
+                            if (minimized)
+                            {
+                                return;
+                            }
+                            // 即使最小化失敗，也應該停止監控，避免重複嘗試
+                            return;
+                        }
+                    }
+                    catch (Exception)
+                    {
+                    }
+                }
+                
+                // 如果監控 10 秒後仍未發現新窗口，則直接返回，不進行任何最小化操作
+                // 這樣可以避免對不存在的窗口進行操作
+            }
+            catch (Exception)
+            {
+                // 忽略所有異常
+            }
+        }
+
+        private static List<IntPtr> EnumerateAllVisibleWindows()
+        {
+            var windows = new List<IntPtr>();
+            try
+            {
+                EnumWindows((hWnd, lParam) =>
+                {
+                    try
+                    {
+                        if (IsWindowVisible(hWnd))
+                        {
+                            windows.Add(hWnd);
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略單個窗口的錯誤
+                    }
+                    return true;
+                }, IntPtr.Zero);
+            }
+            catch (Exception)
+            {
+                // 忽略列舉窗口時的錯誤
+            }
+            return windows;
+        }
+
+        private static bool IsSystemWindow(IntPtr hWnd)
+        {
+            try
+            {
+                // 獲取窗口類名
+                var className = new StringBuilder(256);
+                GetClassName(hWnd, className, className.Capacity);
+                string classNameStr = className.ToString();
+
+                // 排除系統窗口類
+                var systemClasses = new[] { "Shell_TrayWnd", "Button", "Static", "Edit", "ComboBox", "ListBox" };
+                if (systemClasses.Contains(classNameStr))
+                    return true;
+
+                // 排除隱藏窗口
+                if (!IsWindowVisible(hWnd))
+                    return true;
+
+                // 排除所有者窗口（通常是對話框或工具窗口）
+                IntPtr owner = GetWindow(hWnd, GW_OWNER);
+                if (owner != IntPtr.Zero)
+                    return true;
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static async Task<bool> ForceMinimizeWindowAsync(IntPtr windowHandle, string context)
+        {
+            if (windowHandle == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            const int maxAttempts = 5;
+            const int pollIterations = 5;
+            const int pollDelayMs = 100;
+
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                if (!IsWindow(windowHandle))
+                {
+                    return false;
+                }
+
+                bool postMessageResult = PostMessage(windowHandle, WM_SYSCOMMAND, new IntPtr(SC_MINIMIZE), IntPtr.Zero);
+                bool showWindowResult = ShowWindow(windowHandle, SW_MINIMIZE);
+
+                for (int poll = 0; poll < pollIterations; poll++)
+                {
+                    await Task.Delay(pollDelayMs);
+
+                    if (!IsWindow(windowHandle))
+                    {
+                        return true;
+                    }
+
+                    if (IsIconic(windowHandle))
+                    {
+                        return true;
+                    }
+                }
+
+                if (attempt < maxAttempts)
+                {
+                    await Task.Delay(200);
+                }
+            }
+
+            return false;
+        }
+
+        private static async Task<IntPtr> WaitForMainWindowHandleAsync(Process process, int timeoutMs, int intervalMs)
+        {
+            if (process == null)
+            {
+                return IntPtr.Zero;
+            }
+
+            try
+            {
+                var stopwatch = Stopwatch.StartNew();
+                while (stopwatch.ElapsedMilliseconds < timeoutMs)
+                {
+                    if (IsProcessExitedOrInaccessible(process))
+                    {
+                        return IntPtr.Zero;
+                    }
+
+                    process.Refresh();
+                    if (process.MainWindowHandle != IntPtr.Zero)
+                    {
+                        return process.MainWindowHandle;
+                    }
+
+                    await Task.Delay(intervalMs);
+                }
+
+            }
+            catch (Exception)
+            {
+            }
+
+            return IntPtr.Zero;
+        }
+
+        private static void Log(string message)
+        {
+            try
+            {
+                string logFilePath = Path.Combine(AppContext.BaseDirectory, "autostarter.log");
+                File.AppendAllText(logFilePath, $"{DateTime.Now:yyyy/M/d HH:mm:ss.fff}: {message}{Environment.NewLine}");
+            }
+            catch
+            {
+                // Ignore logging errors
+            }
+        }
     }
 }

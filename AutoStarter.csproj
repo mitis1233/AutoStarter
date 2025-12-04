@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -10,21 +10,13 @@
     <Authors>$(AssemblyName)</Authors>
     <SupportedOSPlatformVersion>10.0.26100.0</SupportedOSPlatformVersion>
     <ApplicationIcon>ICON.ico</ApplicationIcon>
-    <Version>1.3</Version>
+    <Version>1.4</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="ActionTemplateSelector.cs" />
-    <Compile Remove="EditAppActionWindow.xaml.cs" />
-    <Compile Remove="InputBoxWindow.xaml.cs" />
-    <Page Remove="EditAppActionWindow.xaml" />
-    <Page Remove="InputBoxWindow.xaml" />
-
+    <PackageReference Include="System.Management" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

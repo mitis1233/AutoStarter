@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:AutoStarter"
         mc:Ignorable="d"
         Title="自動啟動編輯器"
-        Height="600" Width="864">
+        Height="600" Width="1064">
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
@@ -20,7 +20,11 @@
                   CanUserAddRows="False"
                   CanUserSortColumns="False"
                   SelectionMode="Extended"
-                  HeadersVisibility="Column" SelectionChanged="ActionsDataGrid_SelectionChanged">
+                  HeadersVisibility="Column" 
+                  SelectionChanged="ActionsDataGrid_SelectionChanged"
+                  AllowDrop="True"
+                  Drop="ActionsDataGrid_Drop"
+                  DragOver="ActionsDataGrid_DragOver">
             <DataGrid.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="編輯" Click="Edit_Click"/>
@@ -33,6 +37,23 @@
             </DataGrid.ContextMenu>
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="最小化" Binding="{Binding MinimizeWindow, UpdateSourceTrigger=PropertyChanged}" Width="Auto">
+                    <DataGridCheckBoxColumn.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Type}" Value="Delay">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="SetAudioDevice">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="DisableAudioDevice">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGridCheckBoxColumn.CellStyle>
+                </DataGridCheckBoxColumn>
+                <DataGridCheckBoxColumn Header="強制最小化" Binding="{Binding ForceMinimizeWindow, UpdateSourceTrigger=PropertyChanged}" Width="Auto">
                     <DataGridCheckBoxColumn.CellStyle>
                         <Style TargetType="DataGridCell">
                             <Style.Triggers>

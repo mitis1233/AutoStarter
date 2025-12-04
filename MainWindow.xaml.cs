@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows;
+using System.Windows.Input;
 using Microsoft.Win32;
 using NAudio.CoreAudioApi;
 
@@ -238,7 +239,20 @@ public partial class MainWindow : Window
 
         if (saveFileDialog.ShowDialog() == true)
         {
-            var jsonString = JsonSerializer.Serialize(ActionItems, _jsonSerializerOptions);
+            // 創建一個清理後的副本，移除Arguments前後的空格
+            var cleanedItems = ActionItems.Select(item => new ActionItem
+            {
+                MinimizeWindow = item.MinimizeWindow,
+                ForceMinimizeWindow = item.ForceMinimizeWindow,
+                Type = item.Type,
+                FilePath = item.FilePath,
+                Arguments = item.Arguments?.Trim() ?? string.Empty,
+                DelaySeconds = item.DelaySeconds,
+                AudioDeviceId = item.AudioDeviceId,
+                AudioDeviceName = item.AudioDeviceName
+            }).ToList();
+
+            var jsonString = JsonSerializer.Serialize(cleanedItems, _jsonSerializerOptions);
             await File.WriteAllTextAsync(saveFileDialog.FileName, jsonString);
             MessageBox.Show("設定檔已儲存！", "成功", MessageBoxButton.OK, MessageBoxImage.None);
         }
@@ -296,6 +310,71 @@ public partial class MainWindow : Window
         private void ActionsDataGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
 
+    }
+
+    private void ActionsDataGrid_DragOver(object sender, DragEventArgs e)
+    {
+        // 檢查是否有檔案被拖動
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+            // 只有當至少有一個.autostart檔案時才允許拖放
+            if (files != null && files.Any(f => f.EndsWith(".autostart", StringComparison.OrdinalIgnoreCase)))
+            {
+                e.Effects = DragDropEffects.Copy;
+                e.Handled = true;
+                return;
+            }
+        }
+        e.Effects = DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void ActionsDataGrid_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+            if (files != null)
+            {
+                // 處理所有拖入的.autostart檔案
+                foreach (var file in files)
+                {
+                    if (file.EndsWith(".autostart", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ImportAutoStartFile(file);
+                    }
+                }
+            }
+        }
+        e.Handled = true;
+    }
+
+    private void ImportAutoStartFile(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                MessageBox.Show($"檔案不存在：{filePath}", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            var jsonString = File.ReadAllText(filePath);
+            var importedItems = JsonSerializer.Deserialize<List<ActionItem>>(jsonString, _jsonSerializerOptions);
+
+            if (importedItems != null)
+            {
+                foreach (var item in importedItems)
+                {
+                    ActionItems.Add(item);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"匯入設定檔時發生錯誤：\n{ex.Message}", "匯入失敗", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
 }
