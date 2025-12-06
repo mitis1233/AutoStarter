@@ -10,7 +10,8 @@ public enum ActionType
     LaunchApplication,
     SetAudioDevice,
     Delay,
-    DisableAudioDevice
+    DisableAudioDevice,
+    SetPowerPlan
 }
 
 public class ActionItem : INotifyPropertyChanged
@@ -66,6 +67,7 @@ public class ActionItem : INotifyPropertyChanged
     }
 
     private string _filePath = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public string FilePath
     {
         get => _filePath;
@@ -79,6 +81,7 @@ public class ActionItem : INotifyPropertyChanged
     }
 
     private string _arguments = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public string Arguments
     {
         get => _arguments;
@@ -86,6 +89,7 @@ public class ActionItem : INotifyPropertyChanged
     }
 
     private int _delaySeconds;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public int DelaySeconds
     {
         get => _delaySeconds;
@@ -99,6 +103,7 @@ public class ActionItem : INotifyPropertyChanged
     }
 
     private string? _audioDeviceId;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public string? AudioDeviceId
     {
         get => _audioDeviceId;
@@ -106,12 +111,35 @@ public class ActionItem : INotifyPropertyChanged
     }
 
     private string? _audioDeviceName;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public string? AudioDeviceName
     {
         get => _audioDeviceName;
         set
         {
             if (SetField(ref _audioDeviceName, value))
+            {
+                OnPropertyChanged(nameof(Description));
+            }
+        }
+    }
+
+    private Guid _powerPlanId;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public Guid PowerPlanId
+    {
+        get => _powerPlanId;
+        set => SetField(ref _powerPlanId, value);
+    }
+
+    private string? _powerPlanName;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? PowerPlanName
+    {
+        get => _powerPlanName;
+        set
+        {
+            if (SetField(ref _powerPlanName, value))
             {
                 OnPropertyChanged(nameof(Description));
             }
@@ -125,6 +153,7 @@ public class ActionItem : INotifyPropertyChanged
         ActionType.Delay => "Delay",
         ActionType.SetAudioDevice => "Audio",
         ActionType.DisableAudioDevice => "DisableAudio",
+        ActionType.SetPowerPlan => "PowerPlan",
         _ => "Unknown"
     };
 
@@ -135,6 +164,7 @@ public class ActionItem : INotifyPropertyChanged
         ActionType.Delay => $"延遲 {DelaySeconds} 秒",
         ActionType.SetAudioDevice => string.IsNullOrEmpty(AudioDeviceName) ? "N/A" : AudioDeviceName,
         ActionType.DisableAudioDevice => string.IsNullOrEmpty(AudioDeviceName) ? "N/A" : AudioDeviceName,
+        ActionType.SetPowerPlan => string.IsNullOrEmpty(PowerPlanName) ? "N/A" : PowerPlanName,
         _ => "N/A"
     };
 

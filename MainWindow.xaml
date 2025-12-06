@@ -49,6 +49,9 @@
                                 <DataTrigger Binding="{Binding Type}" Value="DisableAudioDevice">
                                     <Setter Property="IsEnabled" Value="False" />
                                 </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="SetPowerPlan">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </DataGridCheckBoxColumn.CellStyle>
@@ -64,6 +67,9 @@
                                     <Setter Property="IsEnabled" Value="False" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Type}" Value="DisableAudioDevice">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="SetPowerPlan">
                                     <Setter Property="IsEnabled" Value="False" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -85,6 +91,9 @@
                                 <DataTrigger Binding="{Binding Type}" Value="DisableAudioDevice">
                                     <Setter Property="IsEnabled" Value="False" />
                                 </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="SetPowerPlan">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </DataGridTextColumn.CellStyle>
@@ -100,6 +109,9 @@
                                     <Setter Property="IsEnabled" Value="False" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Type}" Value="DisableAudioDevice">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="SetPowerPlan">
                                     <Setter Property="IsEnabled" Value="False" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -119,6 +131,9 @@
                                 <DataTrigger Binding="{Binding Type}" Value="DisableAudioDevice">
                                     <Setter Property="IsEnabled" Value="False" />
                                 </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="SetPowerPlan">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </DataGridTextColumn.CellStyle>
@@ -136,11 +151,12 @@
             <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
                 <Button Content="新增程式" Click="AddApp_Click" Margin="5" Padding="5"/>
                 <Button Content="新增延遲" Click="AddDelay_Click" Margin="5" Padding="5"/>
-                <Button Content="新增切換音訊" Click="AddAudio_Click" Margin="5" Padding="5"/>
-                <Button Content="新增停用音訊" Click="AddDisableAudio_Click" Margin="5" Padding="5"/>
+                <Button Content="切換音訊" Click="AddAudio_Click" Margin="5" Padding="5"/>
+                <Button Content="停用音訊" Click="AddDisableAudio_Click" Margin="5" Padding="5"/>
+                <Button Content="切換電源計畫" Click="AddPowerPlan_Click" Margin="5" Padding="5"/>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.ColumnSpan="3" Margin="330,0,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="427,0,0,0" Grid.ColumnSpan="3">
                 <Button Content="上移" Click="MoveUp_Click" Margin="5" Padding="5"/>
                 <Button Content="下移" Click="MoveDown_Click" Margin="5" Padding="5"/>
                 <Button Content="移除" Click="Remove_Click" Margin="5" Padding="5"/>

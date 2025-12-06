@@ -95,6 +95,13 @@ namespace AutoStarter
                                         Dispatcher.Invoke(() => DisableAudioDevice(action.AudioDeviceId));
                                     }
                                     break;
+                                case ActionType.SetPowerPlan:
+                                    if (action.PowerPlanId != Guid.Empty)
+                                    {
+                                        var guid = action.PowerPlanId;
+                                        PowerSetActiveScheme(IntPtr.Zero, ref guid);
+                                    }
+                                    break;
                             }
                         }
                         
@@ -294,10 +301,32 @@ namespace AutoStarter
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
+        [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+        private static partial IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+        private const int GWL_STYLE = -16;
+        private const long WS_MINIMIZEBOX = 0x00020000L;
+
         private const int SW_MINIMIZE = 6;
         private const int GW_OWNER = 4;
         private const uint WM_SYSCOMMAND = 0x0112;
         private const int SC_MINIMIZE = 0xF020;
+
+        [DllImport("powrprof.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern uint PowerSetActiveScheme(IntPtr UserPowerKey, ref Guid ActivePolicyGuid);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam, SendMessageTimeoutFlags fuFlags, uint uTimeout, out IntPtr lpdwResult);
+
+        [Flags]
+        private enum SendMessageTimeoutFlags : uint
+        {
+            SMTO_NORMAL = 0x0,
+            SMTO_BLOCK = 0x1,
+            SMTO_ABORTIFHUNG = 0x2
+        }
+
+        private const uint WM_NULL = 0x0000;
         
         // 檢查進程是否已結束或無法存取
         private static bool IsProcessExitedOrInaccessible(Process process)
@@ -336,7 +365,7 @@ namespace AutoStarter
                 DateTime lastNewWindowTime = DateTime.MinValue;
                 bool foundNewWindow = false;  // 標記是否發現新窗口
 
-                for (int i = 0; i < 10; i++)  // 最多等待 10 秒
+                for (int i = 0; i < 15; i++)  // 最多等待 15 秒
                 {
                     await Task.Delay(1000);  // 每秒檢查一次
 
@@ -345,33 +374,26 @@ namespace AutoStarter
                         var currentWindows = EnumerateAllVisibleWindows();
                         var newWindows = currentWindows.Where(h => !initialWindowHandles.Contains(h)).ToList();
 
-                        if (newWindows.Count > 0)
+                        if (newWindows.Any())
                         {
                             foreach (var windowHandle in newWindows)
                             {
                                 try
                                 {
-                                    if (IsWindow(windowHandle) && IsWindowVisible(windowHandle) && !IsSystemWindow(windowHandle))
+                                    long style = GetWindowLongPtr(windowHandle, GWL_STYLE).ToInt64();
+                                    bool hasMinimizeBox = (style & WS_MINIMIZEBOX) != 0;
+
+                                    if (IsWindow(windowHandle) && IsWindowVisible(windowHandle) && !IsSystemWindow(windowHandle) && hasMinimizeBox)
                                     {
                                         foundNewWindow = true;  // 標記發現新窗口
-                                        if (targetWindowHandle == IntPtr.Zero)
-                                        {
-                                            targetWindowHandle = windowHandle;
-                                            lastNewWindowTime = DateTime.Now;
-                                        }
-                                        else if (windowHandle != targetWindowHandle)
-                                        {
-                                            targetWindowHandle = windowHandle;
-                                            lastNewWindowTime = DateTime.Now;
-                                        }
+                                        targetWindowHandle = windowHandle; // 更新為最新發現的窗口
+                                        lastNewWindowTime = DateTime.Now;
+                                        initialWindowHandles.Add(windowHandle); // 添加到已知集合，避免重複處理
                                     }
                                 }
                                 catch (Exception)
                                 {
-                                }
-                                finally
-                                {
-                                    initialWindowHandles.Add(windowHandle);
+                                    // 忽略單個窗口的錯誤
                                 }
                             }
                         }
@@ -379,17 +401,21 @@ namespace AutoStarter
                         // 只有在確實發現新窗口，且已經 2 秒沒有發現新窗口時，才執行最小化
                         if (foundNewWindow && targetWindowHandle != IntPtr.Zero && (DateTime.Now - lastNewWindowTime).TotalSeconds >= 2)
                         {
+                            // 增加額外延遲，給予無回應的應用更多時間恢復
+                            await Task.Delay(500);
+
                             bool minimized = await ForceMinimizeWindowAsync(targetWindowHandle, "tracked window");
                             if (minimized)
                             {
+                                // 最小化成功，任務完成，退出監控
                                 return;
                             }
-                            // 即使最小化失敗，也應該停止監控，避免重複嘗試
-                            return;
+                            // 如果最小化失敗，不要立即返回，循環將繼續，以便在下一個週期重試
                         }
                     }
                     catch (Exception)
                     {
+                        // 忽略枚舉或處理過程中的錯誤
                     }
                 }
                 
@@ -468,7 +494,7 @@ namespace AutoStarter
                 return false;
             }
 
-            const int maxAttempts = 5;
+            const int maxAttempts = 10;
             const int pollIterations = 5;
             const int pollDelayMs = 100;
 
@@ -478,7 +504,7 @@ namespace AutoStarter
                 {
                     return false;
                 }
-
+                await WaitForWindowResponsiveAsync(windowHandle, 15000); //等待視窗回應
                 bool postMessageResult = PostMessage(windowHandle, WM_SYSCOMMAND, new IntPtr(SC_MINIMIZE), IntPtr.Zero);
                 bool showWindowResult = ShowWindow(windowHandle, SW_MINIMIZE);
 
@@ -499,11 +525,35 @@ namespace AutoStarter
 
                 if (attempt < maxAttempts)
                 {
-                    await Task.Delay(200);
+                    await Task.Delay(500);
                 }
             }
 
             return false;
+        }
+
+        private static async Task<bool> WaitForWindowResponsiveAsync(IntPtr hWnd, int timeoutMs)
+        {
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            var stopwatch = Stopwatch.StartNew();
+            while (stopwatch.ElapsedMilliseconds < timeoutMs)
+            {
+                if (!IsWindow(hWnd)) // 視窗已關閉
+                    return false;
+
+                var result = SendMessageTimeout(hWnd, WM_NULL, IntPtr.Zero, IntPtr.Zero, SendMessageTimeoutFlags.SMTO_BLOCK | SendMessageTimeoutFlags.SMTO_ABORTIFHUNG, 500, out _);
+                if (result != IntPtr.Zero) // 0 表示失敗或超時，非0表示成功
+                {
+                    return true; // 視窗有回應
+                }
+
+                // 等待一小段時間再重試
+                await Task.Delay(100);
+            }
+
+            return false; // 超時，視窗仍無回應
         }
 
         private static async Task<IntPtr> WaitForMainWindowHandleAsync(Process process, int timeoutMs, int intervalMs)

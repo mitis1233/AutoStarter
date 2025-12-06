@@ -6,11 +6,20 @@ using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
 using NAudio.CoreAudioApi;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace AutoStarter;
 
 public partial class MainWindow : Window
 {
+    public class PowerPlan
+    {
+        public string Name { get; set; } = "";
+        public Guid Guid { get; set; } 
+    }
+
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
         Converters = { new JsonStringEnumConverter() },
@@ -81,6 +90,27 @@ public partial class MainWindow : Window
                 Type = ActionType.SetAudioDevice,
                 AudioDeviceId = selectedDevice.ID,
                 AudioDeviceName = selectedDevice.FriendlyName
+            });
+        }
+    }
+
+    private async void AddPowerPlan_Click(object sender, RoutedEventArgs e)
+    {
+        var powerPlans = await LoadPowerPlans();
+        if (powerPlans.Count == 0)
+        {
+            MessageBox.Show("找不到任何電源計畫。", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        var selectorWindow = new PowerPlanSelectorWindow(powerPlans) { Owner = this };
+        if (selectorWindow.ShowDialog() == true && selectorWindow.SelectedPlan != null)
+        {
+            ActionItems.Add(new ActionItem
+            {
+                Type = ActionType.SetPowerPlan,
+                PowerPlanId = selectorWindow.SelectedPlan.Guid,
+                PowerPlanName = selectorWindow.SelectedPlan.Name
             });
         }
     }
@@ -167,6 +197,19 @@ public partial class MainWindow : Window
         {
             case ActionType.SetAudioDevice:
             case ActionType.DisableAudioDevice:
+            case ActionType.SetPowerPlan:
+                if (selectedItem.Type == ActionType.SetPowerPlan)
+                {
+                    var powerPlans = await LoadPowerPlans();
+                    var powerPlanSelector = new PowerPlanSelectorWindow(powerPlans) { Owner = this };
+                    if (powerPlanSelector.ShowDialog() == true && powerPlanSelector.SelectedPlan != null)
+                    {
+                        selectedItem.PowerPlanId = powerPlanSelector.SelectedPlan.Guid;
+                        selectedItem.PowerPlanName = powerPlanSelector.SelectedPlan.Name;
+                    }
+                    return; // Early exit for power plan
+                }
+
                 var enumerator = new MMDeviceEnumerator();
                 var (playbackDevices, recordingDevices) = await Task.Run(() =>
                 {
@@ -249,7 +292,9 @@ public partial class MainWindow : Window
                 Arguments = item.Arguments?.Trim() ?? string.Empty,
                 DelaySeconds = item.DelaySeconds,
                 AudioDeviceId = item.AudioDeviceId,
-                AudioDeviceName = item.AudioDeviceName
+                AudioDeviceName = item.AudioDeviceName,
+                PowerPlanId = item.PowerPlanId,
+                PowerPlanName = item.PowerPlanName
             }).ToList();
 
             var jsonString = JsonSerializer.Serialize(cleanedItems, _jsonSerializerOptions);
@@ -312,7 +357,41 @@ public partial class MainWindow : Window
 
     }
 
+    private async Task<List<PowerPlan>> LoadPowerPlans()
+    {
+        var powerPlans = new List<PowerPlan>();
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "powercfg",
+                Arguments = "/list",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            }
+        };
+
+        process.Start();
+        string output = await process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        var regex = new Regex(@"GUID: (.*?)  \((.*?)\)");
+        var matches = regex.Matches(output);
+
+        foreach (Match match in matches)
+        {
+            if (Guid.TryParse(match.Groups[1].Value.Trim(), out Guid guid))
+            {
+                powerPlans.Add(new PowerPlan { Guid = guid, Name = match.Groups[2].Value.Trim() });
+            }
+        }
+
+        return powerPlans;
+    }
+
     private void ActionsDataGrid_DragOver(object sender, DragEventArgs e)
+
     {
         // 檢查是否有檔案被拖動
         if (e.Data.GetDataPresent(DataFormats.FileDrop))
