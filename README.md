@@ -18,6 +18,8 @@
 
 音訊裝置：可切換、停用 撥放設備及錄製設備
 
+電源計畫：可切換到指定Windows電源計畫
+
 自定義流程： 自訂從上而下的啟動順序 可按鈕&右鍵選單操控
 
 檔案關聯： 首次啟動須點選註冊檔案關聯 關聯後可直接開啟.autostart檔案運行 除非你更換AutoStarter位置才要重新關聯
@@ -40,152 +42,87 @@
 
 [獨立式](https://github.com/mitis1233/AutoStarter/releases/latest/download/AutoStarter_win-x64_Full.zip)
 
-[相依 需下載Net9](https://github.com/mitis1233/AutoStarter/releases/latest/download/AutoStarter_win-x64.zip)
+[相依 需下載.NET 10 Desktop Runtime](https://github.com/mitis1233/AutoStarter/releases/latest/download/AutoStarter_win-x64.zip)
 
 
 
 
 ## ✨ 以下AI詳細介紹
 
-### 🚀 應用程式管理
-- **新增程式**：支持啟動多個應用程式，可指定自定義啟動參數
-- **最小化啟動**：支持普通最小化和強制最小化兩種模式
-  - 普通最小化：標準 Windows 最小化
-  - 強制最小化：監控子進程，確保所有相關窗口都被最小化
-- **參數自動清理**：自動移除啟動參數前後的空格，避免執行錯誤
+AutoStarter 旨在簡化和自動化一系列電腦操作。使用者可以透過圖形化介面建立一個包含多個步驟的「動作序列」，並將其儲存為一個 `.autostart` 設定檔。執行此設定檔後，AutoStarter 將會依照預設順序自動完成所有指定的任務。
 
-### ⏱️ 流程控制
-- **新增延遲**：在操作序列中插入自定義延遲時間（秒數可調）
-- **順序管理**：通過上移/下移按鈕或右鍵菜單自訂執行順序
+無論是遊戲玩家需要在啟動遊戲前設定特定的音訊裝置和電源計畫，還是專業人士需要一鍵開啟多個工作軟體，AutoStarter 都能提供穩定可靠的自動化解決方案。
 
-### 🔊 音訊裝置管理
-- **切換音訊設備**：快速切換播放設備和錄製設備
-- **停用音訊設備**：臨時停用指定的音訊裝置
-- 支持多個音訊端點（Console、Multimedia、Communications）
+## 主要功能
 
-### 💾 設定檔管理
-- **輸出設定檔**：將自動化流程保存為 `.autostart` 設定檔
-- **匯入設定檔**：支持三種匯入方式
-  - 按鈕匯入：點擊「匯入設定檔」按鈕
-  - 拖放匯入：直接拖動 `.autostart` 檔案到 GUI（v1.4 新增）
-  - 檔案關聯：雙擊 `.autostart` 檔案自動打開並執行
+AutoStarter 支援以下幾種核心動作類型，使用者可以自由組合它們以建立複雜的自動化流程：
 
-### 📋 檔案關聯
-- **一鍵註冊**：首次使用時點擊「註冊檔案關聯」
-- **便捷執行**：註冊後可直接雙擊 `.autostart` 檔案運行
-- **靈活移除**：若更換 AutoStarter 位置，點擊「移除檔案關聯」後重新註冊
+- **啟動應用程式 (`.exe`)**
+  - 指定要執行的應用程式路徑。
+  - 可設定啟動參數 (Arguments)。
+  - 提供「最小化」和「強制最小化」選項，確保應用程式在背景啟動。
 
----
+- **設定延遲**
+  - 在動作序列中插入等待時間，單位為秒。
+  - 用於等待某個程式完全載入後再執行下一步操作。
 
-## 🎯 使用流程
+- **設定音訊裝置**
+  - 自動切換預設的播放或錄音裝置。
+  - 適用於需要在不同場景（如遊戲、會議）中使用不同音訊設備的使用者。
 
-### 快速開始
+- **停用音訊裝置**
+  - 暫時停用指定的音訊裝置。
 
-1. **首次啟動**
-   - 打開 AutoStarter
-   - 點擊「註冊檔案關聯」（僅需一次）
+- **設定電源計畫**
+  - 自動切換 Windows 的電源計畫（如「高效能」、「平衡」等）。
+  - 適合在執行高效能需求的應用（如遊戲、渲染）前自動切換。
 
-2. **建立自動化流程**
-   - 點擊「新增程式」選擇要啟動的應用程式
-   - 設置啟動參數（可選）
-   - 勾選「最小化」或「強制最小化」（可選）
-   - 根據需要添加延遲或音訊設備操作
-   - 使用上移/下移調整執行順序
+## 特色功能
 
-3. **保存設定檔**
-   - 點擊「輸出設定檔」按鈕
-   - 選擇保存位置和檔案名
-   - 點擊「保存」
+- **進階視窗最小化**
+  - **普通最小化**: 使用標準方式啟動並最小化視窗。
+  - **強制最小化**: 採用更強力的監控模式，持續追蹤目標程序及其衍生的子程序，並在視窗出現後反覆嘗試將其最小化，直到成功為止。此功能特別適用於某些忽略標準最小化指令的應用程式。
 
-4. **執行自動化流程**
-   - 方式 A：雙擊保存的 `.autostart` 檔案
-   - 方式 B：在 AutoStarter 中點擊「匯入設定檔」後執行
-   - 方式 C：拖動 `.autostart` 檔案到 AutoStarter GUI 中
+- **子程序最小化支援**
+  - 當啟動器（Launcher）在啟動主程式後立即退出時，AutoStarter 能夠智慧地追蹤並最小化由啟動器創建的子程序視窗，解決了傳統最小化功能在此類情境下的失效問題。
 
-### 高級用法
+- **檔案關聯與拖放**
+  - 提供「註冊檔案關聯」功能，讓使用者可以直接雙擊 `.autostart` 檔案來執行動作序列。
+  - 支援將 `.autostart` 檔案直接拖放到主視窗以快速匯入設定。
 
-#### 複雜流程示例
-```
-1. 啟動 exe（帶參數）- 強制最小化
-2. 延遲 2 秒
-3. 切換音訊設備到「耳機」
-4. 啟動 exe（帶參數）- 普通最小化
-5. 延遲 1 秒
-6. 停用「麥克風」
-```
+- **直覺的 UI 操作**
+  - 透過簡單的按鈕點擊即可新增、移除、編輯和排序各項動作。
+  - 所有設定都儲存在易於閱讀和編輯的 JSON 格式檔案中。
 
-## 🔧 技術架構
+## 使用教學
 
-### 技術棧
-- **框架**：WPF (Windows Presentation Foundation)
-- **語言**：C# 12 (.NET 9.0)
-- **依賴**：
-  - NAudio 2.2.1 - 音訊設備管理
-  - System.Management 10.0.0 - 進程管理和 WMI 查詢
+1. **開啟主程式**: 執行 `AutoStarter.exe`。
+2. **建立動作序列**:
+   - 點擊「新增應用程式」、「新增延遲」等按鈕，將動作加入到列表中。
+   - 在列表中選中某個動作，使用「上移」、「下移」按鈕調整執行順序。
+   - 雙擊某個動作或點擊「編輯」按鈕可修改其詳細參數（如檔案路徑、延遲時間等）。
+3. **儲存設定檔**:
+   - 點擊「儲存設定檔」，將目前的動作序列儲存為一個 `.autostart` 檔案。
+4. **註冊檔案關聯 (建議)**:
+   - 點擊「工具」選單中的「註冊檔案關聯」，之後便可直接雙擊 `.autostart` 檔案執行。
+5. **執行**:
+   - 雙擊儲存的 `.autostart` 檔案，AutoStarter 將在背景自動執行所有設定好的動作。
 
-### 核心組件
+## 技術細節
 
-| 組件 | 功能 |
-|------|------|
-| `MainWindow.xaml(.cs)` | 主 GUI 界面、事件處理、拖放功能 |
-| `ActionItem.cs` | 操作項數據模型，支持 MVVM 綁定 |
-| `App.xaml.cs` | 應用啟動邏輯、.autostart 檔案執行引擎 |
-| `AudioDeviceSelectorWindow.xaml(.cs)` | 音訊設備選擇對話框 |
-| `EditActionWindow.xaml(.cs)` | 操作項編輯對話框 |
-| `CoreAudio/` | 音訊設備管理核心庫 |
-
-### 操作類型
-```csharp
-enum ActionType
-{
-    LaunchApplication,      // 啟動應用程式
-    Delay,                  // 延遲等待
-    SetAudioDevice,         // 切換音訊設備
-    DisableAudioDevice      // 停用音訊設備
-}
-```
-
-### 設定檔格式 (.autostart)
-```json
-[
-  {
-    "MinimizeWindow": true,
-    "ForceMinimizeWindow": false,
-    "Type": "LaunchApplication",
-    "FilePath": "C:\\Program Files\\App\\app.exe",
-    "Arguments": "--fullscreen -screen-width 2560",
-    "DelaySeconds": 0,
-    "AudioDeviceId": null,
-    "AudioDeviceName": null
-  },
-  {
-    "MinimizeWindow": false,
-    "ForceMinimizeWindow": false,
-    "Type": "Delay",
-    "FilePath": "",
-    "Arguments": "",
-    "DelaySeconds": 2,
-    "AudioDeviceId": null,
-    "AudioDeviceName": null
-  }
-]
-```
-
----
-
-## 🆕 v1.4 更新內容
-
-### 新增功能
-- ✨ **拖放匯入**：支持直接拖動 `.autostart` 檔案到 GUI 進行匯入
-- 🧹 **參數自動清理**：匯出時自動移除啟動參數的前後空格
-- 📦 **依賴更新**：System.Management 升級至 v10.0.0
-
-### 改進
-- 優化了拖放事件的視覺反饋
-- 改進了參數驗證邏輯
-- 增強了錯誤處理機制
-
-### 已知特性
-- 支持子進程最小化監控（v1.3+）
-- 互斥的最小化選項（普通/強制）
-- 完整的音訊設備管理
+- **框架**: 使用 .NET WPF (Windows Presentation Foundation) 建構圖形化使用者介面。
+- **核心邏輯**: 
+  - 透過 `System.Diagnostics.Process` 啟動和管理外部應用程式。
+  - 使用 `System.Text.Json` 處理 `.autostart` 設定檔的序列化與反序列化。
+- **音訊裝置管理**:
+  - 借助 `NAudio` 和 `CoreAudio` COM 介面來列舉和設定系統的預設音訊裝置。
+- **電源計畫管理**:
+  - 透過 `powercfg.exe` 命令列工具來列舉系統所有可用的電源計畫。
+  - 使用 P/Invoke 呼叫 `powrprof.dll` 中的 `PowerSetActiveScheme` Win32 API 來設定作用中的電源計畫。
+- **視窗控制與最小化**:
+  - 大量使用 P/Invoke 呼叫 `user32.dll` 中的 Win32 API，例如：
+    - `EnumWindows` / `IsWindowVisible`: 列舉和過濾可見視窗。
+    - `PostMessage` / `ShowWindow`: 傳送 `WM_SYSCOMMAND` 訊息或直接指令來最小化視窗。
+    - `SendMessageTimeout`: 檢查視窗是否回應，避免在無回應的視窗上操作導致卡死。
+- **子程序追蹤**:
+  - 使用 `System.Management` (WMI) 查詢 `Win32_Process`，透過 `ParentProcessId` 屬性來建立程序之間的父子關係，以實現對子程序的追蹤。
