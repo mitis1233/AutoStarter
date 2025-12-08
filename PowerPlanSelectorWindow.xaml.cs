@@ -3,7 +3,7 @@ using System.Windows;
 
 namespace AutoStarter
 {
-    public partial class PowerPlanSelectorWindow : Window
+    public partial class PowerPlanSelectorWindow : Wpf.Ui.Controls.FluentWindow
     {
         public MainWindow.PowerPlan? SelectedPlan { get; private set; }
 

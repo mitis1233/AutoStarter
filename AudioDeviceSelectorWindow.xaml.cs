@@ -2,7 +2,7 @@ using System.Windows;
 
 namespace AutoStarter
 {
-    public partial class AudioDeviceSelectorWindow : Window
+    public partial class AudioDeviceSelectorWindow : Wpf.Ui.Controls.FluentWindow
     {
         public DeviceInfo? SelectedDevice { get; private set; }
 

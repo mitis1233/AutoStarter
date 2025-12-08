@@ -365,7 +365,7 @@ namespace AutoStarter
                 DateTime lastNewWindowTime = DateTime.MinValue;
                 bool foundNewWindow = false;  // 標記是否發現新窗口
 
-                for (int i = 0; i < 15; i++)  // 最多等待 15 秒
+                for (int i = 0; i < 20; i++)  // 最多等待 15 秒
                 {
                     await Task.Delay(1000);  // 每秒檢查一次
 
@@ -402,13 +402,14 @@ namespace AutoStarter
                         if (foundNewWindow && targetWindowHandle != IntPtr.Zero && (DateTime.Now - lastNewWindowTime).TotalSeconds >= 2)
                         {
                             // 增加額外延遲，給予無回應的應用更多時間恢復
-                            await Task.Delay(500);
+                            await Task.Delay(1000);
 
                             bool minimized = await ForceMinimizeWindowAsync(targetWindowHandle, "tracked window");
                             if (minimized)
                             {
-                                // 最小化成功，任務完成，退出監控
-                                return;
+                                // 最小化成功，重置狀態以繼續監控下一個可能的窗口
+                                foundNewWindow = false;
+                                targetWindowHandle = IntPtr.Zero;
                             }
                             // 如果最小化失敗，不要立即返回，循環將繼續，以便在下一個週期重試
                         }
@@ -494,9 +495,9 @@ namespace AutoStarter
                 return false;
             }
 
-            const int maxAttempts = 10;
-            const int pollIterations = 5;
-            const int pollDelayMs = 100;
+            const int maxAttempts = 5;
+            const int pollIterations = 6;
+            const int pollDelayMs = 500;
 
             for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
@@ -504,7 +505,7 @@ namespace AutoStarter
                 {
                     return false;
                 }
-                await WaitForWindowResponsiveAsync(windowHandle, 15000); //等待視窗回應
+                await WaitForWindowResponsiveAsync(windowHandle, 20000); //等待視窗回應
                 bool postMessageResult = PostMessage(windowHandle, WM_SYSCOMMAND, new IntPtr(SC_MINIMIZE), IntPtr.Zero);
                 bool showWindowResult = ShowWindow(windowHandle, SW_MINIMIZE);
 
@@ -525,7 +526,7 @@ namespace AutoStarter
 
                 if (attempt < maxAttempts)
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(1000);
                 }
             }
 

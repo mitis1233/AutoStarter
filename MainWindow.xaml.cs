@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace AutoStarter;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 {
     public class PowerPlan
     {

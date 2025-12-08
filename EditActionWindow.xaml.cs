@@ -3,7 +3,7 @@ using System.Windows.Controls;
 
 namespace AutoStarter
 {
-    public partial class EditActionWindow : Window
+    public partial class EditActionWindow : Wpf.Ui.Controls.FluentWindow
     {
         private readonly ActionItem _actionItem;
         private TextBox? _argumentsTextBox;
@@ -36,7 +36,8 @@ namespace AutoStarter
                     Grid.SetColumn(_filePathTextBox, 0);
                     grid.Children.Add(_filePathTextBox);
 
-                    var browseButton = new Button { Content = "瀏覽...", Padding = new Thickness(5,0,5,0) };
+                    var browseButton = new Wpf.Ui.Controls.Button { Content = "瀏覽...", Padding = new Thickness(5,0,5,0) };
+                    browseButton.Style = (Style)FindResource("FrostedGlassButtonStyle");
                     browseButton.Click += BrowseButton_Click;
                     Grid.SetColumn(browseButton, 1);
                     grid.Children.Add(browseButton);
