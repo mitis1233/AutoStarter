@@ -1,0 +1,24 @@
+[
+  {
+    "MinimizeWindow": false,
+    "ForceMinimizeWindow": true,
+    "Type": "LaunchApplication",
+    "FilePath": "D:\\Program Files (x86)\\Steam\\steamapps\\common\\SteamVR\\bin\\win64\\vrmonitor.exe",
+    "Arguments": "-vr -nowindow"
+  },
+  {
+    "MinimizeWindow": false,
+    "ForceMinimizeWindow": false,
+    "Type": "Delay",
+    "FilePath": "",
+    "Arguments": "",
+    "DelaySeconds": 1
+  },
+  {
+    "MinimizeWindow": false,
+    "ForceMinimizeWindow": true,
+    "Type": "LaunchApplication",
+    "FilePath": "C:\\SteamLibrary\\steamapps\\common\\VRChat\\launch.exe",
+    "Arguments": "--enable-hw-video-decoding --process-priority=1 --main-thread-priority=1 -screen-fullscreen 0 -screen-width 320 -screen-height 240 -force-d3d11-no-singlethreaded"
+  }
+]
