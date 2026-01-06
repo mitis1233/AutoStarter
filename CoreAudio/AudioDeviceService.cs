@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
 
 namespace AutoStarter.CoreAudio
@@ -9,19 +10,51 @@ namespace AutoStarter.CoreAudio
     {
         public static (List<DeviceInfo> Playback, List<DeviceInfo> Recording) GetDeviceLists(DeviceState state)
         {
-            using var enumerator = new MMDeviceEnumerator();
-            return (
-                EnumerateDeviceFlow(enumerator, DataFlow.Render, state),
-                EnumerateDeviceFlow(enumerator, DataFlow.Capture, state));
+            if (TryGetDeviceLists(state, out var result, out var error))
+            {
+                return result;
+            }
+
+            if (state != DeviceState.Active && TryGetDeviceLists(DeviceState.Active, out result, out error))
+            {
+                return result;
+            }
+
+            throw error ?? new COMException("Unable to enumerate audio devices.");
         }
 
         public static List<DeviceInfo> GetAllDevices(DeviceState state)
         {
-            using var enumerator = new MMDeviceEnumerator();
-            var playback = EnumerateDeviceFlow(enumerator, DataFlow.Render, state);
-            var recording = EnumerateDeviceFlow(enumerator, DataFlow.Capture, state);
+            var (playback, recording) = GetDeviceLists(state);
             playback.AddRange(recording);
             return playback;
+        }
+
+        private static bool TryGetDeviceLists(DeviceState state, out (List<DeviceInfo> Playback, List<DeviceInfo> Recording) result, out COMException? error)
+        {
+            var sanitizedState = SanitizeState(state);
+            try
+            {
+                using var enumerator = new MMDeviceEnumerator();
+                result = (
+                    EnumerateDeviceFlow(enumerator, DataFlow.Render, sanitizedState),
+                    EnumerateDeviceFlow(enumerator, DataFlow.Capture, sanitizedState));
+                error = null;
+                return true;
+            }
+            catch (COMException ex)
+            {
+                result = default;
+                error = ex;
+                return false;
+            }
+        }
+
+        private static DeviceState SanitizeState(DeviceState state)
+        {
+            return state == DeviceState.All
+                ? DeviceState.Active | DeviceState.Disabled | DeviceState.Unplugged
+                : state;
         }
 
         private static List<DeviceInfo> EnumerateDeviceFlow(MMDeviceEnumerator enumerator, DataFlow flow, DeviceState state)
@@ -35,6 +68,8 @@ namespace AutoStarter.CoreAudio
                     InstanceId = TryGetInstanceId(device),
                     State = device.State
                 })
+                .OrderBy(d => GetStateSortKey(d.State))
+                .ThenBy(d => d.FriendlyName)
                 .ToList();
         }
 
@@ -50,5 +85,13 @@ namespace AutoStarter.CoreAudio
                 return null;
             }
         }
+
+        private static int GetStateSortKey(DeviceState state) => state switch
+        {
+            DeviceState.Active => 0,
+            DeviceState.Disabled => 1,
+            DeviceState.Unplugged => 2,
+            _ => 3
+        };
     }
 }

@@ -61,10 +61,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ActionItems.Add(new ActionItem { Type = ActionType.Delay, DelaySeconds = 5 });
     }
 
-    private async void AddAudio_Click(object sender, RoutedEventArgs e)
+    private void AddAudio_Click(object sender, RoutedEventArgs e)
     {
-        var (playbackDevices, recordingDevices) = await Task.Run(() =>
-            AudioDeviceService.GetDeviceLists(DeviceState.All));
+        var (playbackDevices, recordingDevices) = AudioDeviceService.GetDeviceLists(DeviceState.All);
 
         if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
         {
@@ -107,10 +106,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
-    private async void AddDisableAudio_Click(object sender, RoutedEventArgs e)
+    private void AddDisableAudio_Click(object sender, RoutedEventArgs e)
     {
-        var (playbackDevices, recordingDevices) = await Task.Run(() =>
-            AudioDeviceService.GetDeviceLists(DeviceState.All));
+        var (playbackDevices, recordingDevices) = AudioDeviceService.GetDeviceLists(DeviceState.All);
 
         if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
         {
@@ -193,8 +191,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                     return; // Early exit for power plan
                 }
 
-                var (playbackDevices, recordingDevices) = await Task.Run(() =>
-                    AudioDeviceService.GetDeviceLists(DeviceState.All));
+                var (playbackDevices, recordingDevices) = AudioDeviceService.GetDeviceLists(DeviceState.All);
 
                 var selectorWindow = new AudioDeviceSelectorWindow(playbackDevices, recordingDevices) { Owner = this };
                 if (selectorWindow.ShowDialog() == true && selectorWindow.SelectedDevice != null)

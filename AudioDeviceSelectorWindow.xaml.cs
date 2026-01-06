@@ -1,16 +1,22 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 
 namespace AutoStarter
 {
     public partial class AudioDeviceSelectorWindow : Wpf.Ui.Controls.FluentWindow
     {
+        private readonly List<DeviceInfo> _allPlaybackDevices;
+        private readonly List<DeviceInfo> _allRecordingDevices;
+
         public DeviceInfo? SelectedDevice { get; private set; }
 
         public AudioDeviceSelectorWindow(IEnumerable<DeviceInfo> playbackDevices, IEnumerable<DeviceInfo> recordingDevices)
         {
             InitializeComponent();
-            PlaybackDeviceListBox.ItemsSource = playbackDevices;
-            RecordingDeviceListBox.ItemsSource = recordingDevices;
+            _allPlaybackDevices = playbackDevices.ToList();
+            _allRecordingDevices = recordingDevices.ToList();
+            UpdateDeviceLists();
         }
 
         private void DeviceListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -45,6 +51,28 @@ namespace AutoStarter
             {
                 MessageBox.Show("請選擇一個裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.None);
             }
+        }
+
+        private void DeviceFilterCheckBoxChanged(object sender, RoutedEventArgs e)
+        {
+            UpdateDeviceLists();
+        }
+
+        private void UpdateDeviceLists()
+        {
+            bool showDisabled = ShowDisabledCheckBox.IsChecked == true;
+            bool showUnplugged = ShowUnpluggedCheckBox.IsChecked == true;
+
+            PlaybackDeviceListBox.ItemsSource = FilterDevices(_allPlaybackDevices, showDisabled, showUnplugged);
+            RecordingDeviceListBox.ItemsSource = FilterDevices(_allRecordingDevices, showDisabled, showUnplugged);
+        }
+
+        private static IEnumerable<DeviceInfo> FilterDevices(IEnumerable<DeviceInfo> devices, bool showDisabled, bool showUnplugged)
+        {
+            return devices.Where(device =>
+                device.State == NAudio.CoreAudioApi.DeviceState.Active ||
+                (showDisabled && device.State == NAudio.CoreAudioApi.DeviceState.Disabled) ||
+                (showUnplugged && device.State == NAudio.CoreAudioApi.DeviceState.Unplugged));
         }
     }
 }
