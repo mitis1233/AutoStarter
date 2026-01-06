@@ -5,10 +5,11 @@ using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
-using NAudio.CoreAudioApi;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using AutoStarter.CoreAudio;
+using NAudio.CoreAudioApi;
 
 namespace AutoStarter;
 
@@ -62,22 +63,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private async void AddAudio_Click(object sender, RoutedEventArgs e)
     {
-        var enumerator = new MMDeviceEnumerator();
-
         var (playbackDevices, recordingDevices) = await Task.Run(() =>
-        {
-            var playback = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)
-                                     .Select(d => new DeviceInfo { ID = d.ID, FriendlyName = d.FriendlyName })
-                                     .ToList();
-            var recording = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)
-                                      .Select(d => new DeviceInfo { ID = d.ID, FriendlyName = d.FriendlyName })
-                                      .ToList();
-            return (playback, recording);
-        });
+            AudioDeviceService.GetDeviceLists(DeviceState.All));
 
         if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
         {
-            MessageBox.Show("找不到任何已啟用的音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.None);
+            MessageBox.Show("找不到任何音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.None);
             return;
         }
 
@@ -89,6 +80,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             {
                 Type = ActionType.SetAudioDevice,
                 AudioDeviceId = selectedDevice.ID,
+                AudioDeviceInstanceId = selectedDevice.InstanceId,
                 AudioDeviceName = selectedDevice.FriendlyName
             });
         }
@@ -117,22 +109,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private async void AddDisableAudio_Click(object sender, RoutedEventArgs e)
     {
-        var enumerator = new MMDeviceEnumerator();
-
         var (playbackDevices, recordingDevices) = await Task.Run(() =>
-        {
-            var playback = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)
-                                     .Select(d => new DeviceInfo { ID = d.ID, FriendlyName = d.FriendlyName })
-                                     .ToList();
-            var recording = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)
-                                      .Select(d => new DeviceInfo { ID = d.ID, FriendlyName = d.FriendlyName })
-                                      .ToList();
-            return (playback, recording);
-        });
+            AudioDeviceService.GetDeviceLists(DeviceState.All));
 
         if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
         {
-            MessageBox.Show("找不到任何已啟用的音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.None);
+            MessageBox.Show("找不到任何音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.None);
             return;
         }
 
@@ -144,6 +126,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             {
                 Type = ActionType.DisableAudioDevice,
                 AudioDeviceId = selectedDevice.ID,
+                AudioDeviceInstanceId = selectedDevice.InstanceId,
                 AudioDeviceName = selectedDevice.FriendlyName
             });
         }
@@ -210,22 +193,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                     return; // Early exit for power plan
                 }
 
-                var enumerator = new MMDeviceEnumerator();
                 var (playbackDevices, recordingDevices) = await Task.Run(() =>
-                {
-                    var playback = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)
-                                             .Select(d => new DeviceInfo { ID = d.ID, FriendlyName = d.FriendlyName })
-                                             .ToList();
-                    var recording = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)
-                                              .Select(d => new DeviceInfo { ID = d.ID, FriendlyName = d.FriendlyName })
-                                              .ToList();
-                    return (playback, recording);
-                });
+                    AudioDeviceService.GetDeviceLists(DeviceState.All));
 
                 var selectorWindow = new AudioDeviceSelectorWindow(playbackDevices, recordingDevices) { Owner = this };
                 if (selectorWindow.ShowDialog() == true && selectorWindow.SelectedDevice != null)
                 {
                     selectedItem.AudioDeviceId = selectorWindow.SelectedDevice.ID;
+                    selectedItem.AudioDeviceInstanceId = selectorWindow.SelectedDevice.InstanceId;
                     selectedItem.AudioDeviceName = selectorWindow.SelectedDevice.FriendlyName;
                 }
                 break;
@@ -292,6 +267,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 Arguments = item.Arguments?.Trim() ?? string.Empty,
                 DelaySeconds = item.DelaySeconds,
                 AudioDeviceId = item.AudioDeviceId,
+                AudioDeviceInstanceId = item.AudioDeviceInstanceId,
                 AudioDeviceName = item.AudioDeviceName,
                 PowerPlanId = item.PowerPlanId,
                 PowerPlanName = item.PowerPlanName

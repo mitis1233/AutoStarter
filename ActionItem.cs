@@ -110,6 +110,14 @@ public class ActionItem : INotifyPropertyChanged
         set => SetField(ref _audioDeviceId, value);
     }
 
+    private string? _audioDeviceInstanceId;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string? AudioDeviceInstanceId
+    {
+        get => _audioDeviceInstanceId;
+        set => SetField(ref _audioDeviceInstanceId, value);
+    }
+
     private string? _audioDeviceName;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public string? AudioDeviceName

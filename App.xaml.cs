@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -7,6 +8,7 @@ using System.Text.Json;
 using System.Management;
 using System.Text;
 using System.Linq;
+using NAudio.CoreAudioApi;
 
 namespace AutoStarter
 {
@@ -80,21 +82,27 @@ namespace AutoStarter
                                     await Task.Delay(TimeSpan.FromSeconds(action.DelaySeconds));
                                     break;
                                 case ActionType.SetAudioDevice:
-                                    if (action.AudioDeviceId != null)
+                                {
+                                    var resolvedId = ResolveAudioDeviceId(action);
+                                    if (!string.IsNullOrEmpty(resolvedId))
                                     {
                                         Dispatcher.Invoke(() =>
                                         {
-                                            EnableAudioDevice(action.AudioDeviceId);
-                                            SetDefaultAudioDevice(action.AudioDeviceId);
+                                            EnableAudioDevice(resolvedId);
+                                            SetDefaultAudioDevice(resolvedId);
                                         });
                                     }
                                     break;
+                                }
                                 case ActionType.DisableAudioDevice:
-                                    if (action.AudioDeviceId != null)
+                                {
+                                    var resolvedId = ResolveAudioDeviceId(action);
+                                    if (!string.IsNullOrEmpty(resolvedId))
                                     {
-                                        Dispatcher.Invoke(() => DisableAudioDevice(action.AudioDeviceId));
+                                        Dispatcher.Invoke(() => DisableAudioDevice(resolvedId));
                                     }
                                     break;
+                                }
                                 case ActionType.SetPowerPlan:
                                     if (action.PowerPlanId != Guid.Empty)
                                     {
@@ -179,6 +187,43 @@ namespace AutoStarter
             catch (Exception )//ex)
             {
                 //Log($"啟用音訊裝置失敗：{ex.Message}");
+            }
+        }
+
+        private static string? ResolveAudioDeviceId(ActionItem action)
+        {
+            if (action == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                var devices = AudioDeviceService.GetAllDevices(DeviceState.All);
+                var device = AudioDeviceResolver.ResolveDevice(
+                    devices,
+                    action.AudioDeviceId,
+                    action.AudioDeviceInstanceId,
+                    action.AudioDeviceName);
+
+                if (device == null)
+                {
+                    return null;
+                }
+
+                if (!string.Equals(action.AudioDeviceId, device.ID, StringComparison.OrdinalIgnoreCase))
+                {
+                    action.AudioDeviceId = device.ID;
+                }
+
+                action.AudioDeviceInstanceId = device.InstanceId;
+                action.AudioDeviceName = device.FriendlyName;
+
+                return device.ID;
+            }
+            catch
+            {
+                return null;
             }
         }
 
