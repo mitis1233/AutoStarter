@@ -91,7 +91,8 @@ namespace AutoStarter.CoreAudio
             DeviceState.Active => 0,
             DeviceState.Disabled => 1,
             DeviceState.Unplugged => 2,
-            _ => 3
+            DeviceState.NotPresent => 3,
+            _ => 4
         };
     }
 }

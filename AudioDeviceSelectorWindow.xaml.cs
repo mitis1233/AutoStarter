@@ -72,7 +72,7 @@ namespace AutoStarter
             return devices.Where(device =>
                 device.State == NAudio.CoreAudioApi.DeviceState.Active ||
                 (showDisabled && device.State == NAudio.CoreAudioApi.DeviceState.Disabled) ||
-                (showUnplugged && device.State == NAudio.CoreAudioApi.DeviceState.Unplugged));
+                (showUnplugged && (device.State == NAudio.CoreAudioApi.DeviceState.Unplugged || device.State == NAudio.CoreAudioApi.DeviceState.NotPresent)));
         }
     }
 }

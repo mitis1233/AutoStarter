@@ -58,7 +58,7 @@
                       Checked="DeviceFilterCheckBoxChanged"
                       Unchecked="DeviceFilterCheckBoxChanged"/>
             <CheckBox x:Name="ShowUnpluggedCheckBox"
-                      Content="顯示未插入"
+                      Content="顯示未插入 / 未連接"
                       Checked="DeviceFilterCheckBoxChanged"
                       Unchecked="DeviceFilterCheckBoxChanged"/>
         </StackPanel>
