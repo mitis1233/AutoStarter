@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json.Serialization;
 
 namespace AutoStarter;
@@ -153,12 +154,12 @@ public class ActionItem : INotifyPropertyChanged
         }
     }
 
-    private string _arguments = string.Empty;
+    private string? _arguments;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public string Arguments
+    public string? Arguments
     {
         get => _arguments;
-        set => SetField(ref _arguments, value);
+        set => SetField(ref _arguments, string.IsNullOrWhiteSpace(value) ? null : value);
     }
 
     private int _delaySeconds;
@@ -255,20 +256,32 @@ public class ActionItem : INotifyPropertyChanged
 
     private string BuildAudioVolumeDescription()
     {
-        var parts = new List<string>();
+        StringBuilder? builder = null;
+
+        void AppendSection(string text)
+        {
+            builder ??= new StringBuilder();
+            if (builder.Length > 0)
+            {
+                builder.Append(" / ");
+            }
+
+            builder.Append(text);
+        }
+
         if (AdjustPlaybackVolume && PlaybackVolumePercent.HasValue)
         {
-            parts.Add($"播放 {PlaybackVolumePercent.Value}%");
+            AppendSection($"播放 {PlaybackVolumePercent.Value}%");
         }
 
         if (AdjustRecordingVolume && RecordingVolumePercent.HasValue)
         {
-            parts.Add($"錄音 {RecordingVolumePercent.Value}%");
+            AppendSection($"錄音 {RecordingVolumePercent.Value}%");
         }
 
-        if (parts.Count > 0)
+        if (builder != null)
         {
-            return string.Join(" / ", parts);
+            return builder.ToString();
         }
 
         if (AudioVolumePercent.HasValue)

@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using AutoStarter.CoreAudio;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Management;
 using System.Text;
 using System.Linq;
@@ -16,6 +17,13 @@ namespace AutoStarter
 {
     public partial class App : Application
     {
+        private static readonly JsonSerializerOptions AutostartSerializerOptions = new()
+        {
+            Converters = { new JsonStringEnumConverter() }
+        };
+
+        private static IReadOnlyList<DeviceInfo>? _deviceSnapshot;
+
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -27,15 +35,11 @@ namespace AutoStarter
                 try
                 {
                     string json = File.ReadAllText(filePath);
-                    JsonSerializerOptions jsonSerializerOptions = new()
-                    {
-                        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-                    };
-                    var options = jsonSerializerOptions;
-                    var actions = JsonSerializer.Deserialize<List<ActionItem>>(json, options);
+                    var actions = JsonSerializer.Deserialize<List<ActionItem>>(json, AutostartSerializerOptions);
                     if (actions != null)
                     {
                         var minimizeTasks = new List<Task>();
+                        _deviceSnapshot = null;
                         
                         foreach (var action in actions)
                         {
@@ -88,11 +92,8 @@ namespace AutoStarter
                                     var resolvedId = ResolveAudioDeviceId(action);
                                     if (!string.IsNullOrEmpty(resolvedId))
                                     {
-                                        Dispatcher.Invoke(() =>
-                                        {
-                                            EnableAudioDevice(resolvedId);
-                                            SetDefaultAudioDevice(resolvedId);
-                                        });
+                                        EnableAudioDevice(resolvedId);
+                                        SetDefaultAudioDevice(resolvedId);
                                     }
                                     break;
                                 }
@@ -101,7 +102,7 @@ namespace AutoStarter
                                     var resolvedId = ResolveAudioDeviceId(action);
                                     if (!string.IsNullOrEmpty(resolvedId))
                                     {
-                                        Dispatcher.Invoke(() => DisableAudioDevice(resolvedId));
+                                        DisableAudioDevice(resolvedId);
                                     }
                                     break;
                                 }
@@ -110,13 +111,13 @@ namespace AutoStarter
                                     var resolvedId = ResolveAudioDeviceId(action);
                                     if (!string.IsNullOrEmpty(resolvedId))
                                     {
-                                        Dispatcher.Invoke(() => EnableAudioDevice(resolvedId));
+                                        EnableAudioDevice(resolvedId);
                                     }
                                     break;
                                 }
                                 case ActionType.SetAudioVolume:
                                 {
-                                    Dispatcher.Invoke(() => ApplyVolumeAdjustment(action));
+                                    ApplyVolumeAdjustment(action);
                                     break;
                                 }
                                 case ActionType.SetPowerPlan:
@@ -285,34 +286,50 @@ namespace AutoStarter
                 return null;
             }
 
+            var device = ResolveFromSnapshot(action, refresh: false)
+                ?? ResolveFromSnapshot(action, refresh: true);
+
+            if (device == null)
+            {
+                return null;
+            }
+
+            if (!string.Equals(action.AudioDeviceId, device.ID, StringComparison.OrdinalIgnoreCase))
+            {
+                action.AudioDeviceId = device.ID;
+            }
+
+            action.AudioDeviceInstanceId = device.InstanceId;
+            action.AudioDeviceName = device.FriendlyName;
+
+            return device.ID;
+        }
+
+        private static DeviceInfo? ResolveFromSnapshot(ActionItem action, bool refresh)
+        {
             try
             {
-                var devices = AudioDeviceService.GetAllDevices(DeviceState.All);
-                var device = AudioDeviceResolver.ResolveDevice(
+                var devices = GetDeviceSnapshot(refresh);
+                return AudioDeviceResolver.ResolveDevice(
                     devices,
                     action.AudioDeviceId,
                     action.AudioDeviceInstanceId,
                     action.AudioDeviceName);
-
-                if (device == null)
-                {
-                    return null;
-                }
-
-                if (!string.Equals(action.AudioDeviceId, device.ID, StringComparison.OrdinalIgnoreCase))
-                {
-                    action.AudioDeviceId = device.ID;
-                }
-
-                action.AudioDeviceInstanceId = device.InstanceId;
-                action.AudioDeviceName = device.FriendlyName;
-
-                return device.ID;
             }
             catch
             {
                 return null;
             }
+        }
+
+        private static IReadOnlyList<DeviceInfo> GetDeviceSnapshot(bool refresh)
+        {
+            if (refresh || _deviceSnapshot == null)
+            {
+                _deviceSnapshot = AudioDeviceService.GetAllDevices(DeviceState.All);
+            }
+
+            return _deviceSnapshot;
         }
 
         private static async Task MinimizeWindowAsync(Process process)

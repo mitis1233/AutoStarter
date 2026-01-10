@@ -30,6 +30,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     };
 
     public ObservableCollection<ActionItem> ActionItems { get; set; }
+    private string? _lastImportedProfileDirectory;
+    private string? _lastExportDirectory;
 
     private Task<Wpf.Ui.Controls.MessageBoxResult> ShowDialogAsync(string title, string content, string primaryText = "確定", string? closeText = null)
     {
@@ -58,9 +60,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         InitializeComponent();
         ActionItems = [];
-        ActionItems.CollectionChanged += ActionItems_CollectionChanged;
-
         DataContext = this;
+    }
+
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        ActionItems.CollectionChanged += ActionItems_CollectionChanged;
     }
 
     private void ActionItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -365,6 +371,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             try
             {
                 var jsonString = File.ReadAllText(openFileDialog.FileName);
+                RememberImportedDirectory(openFileDialog.FileName);
                 var importedItems = JsonSerializer.Deserialize<List<ActionItem>>(jsonString, _jsonSerializerOptions);
 
                 if (importedItems != null)
@@ -392,6 +399,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             FileName = "MyStartup.autostart"
         };
 
+        saveFileDialog.InitialDirectory = _lastImportedProfileDirectory ?? _lastExportDirectory;
+
         if (saveFileDialog.ShowDialog() == true)
         {
             // 創建一個清理後的副本，移除Arguments前後的空格
@@ -401,18 +410,23 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 ForceMinimizeWindow = item.ForceMinimizeWindow,
                 Type = item.Type,
                 FilePath = item.FilePath,
-                Arguments = item.Arguments?.Trim() ?? string.Empty,
+                Arguments = string.IsNullOrWhiteSpace(item.Arguments) ? null : item.Arguments.Trim(),
                 DelaySeconds = item.DelaySeconds,
                 AudioDeviceId = item.AudioDeviceId,
                 AudioDeviceInstanceId = item.AudioDeviceInstanceId,
                 AudioDeviceName = item.AudioDeviceName,
                 PowerPlanId = item.PowerPlanId,
                 PowerPlanName = item.PowerPlanName,
-                AudioVolumePercent = item.AudioVolumePercent
+                AudioVolumePercent = item.AudioVolumePercent,
+                AdjustPlaybackVolume = item.AdjustPlaybackVolume,
+                PlaybackVolumePercent = item.PlaybackVolumePercent,
+                AdjustRecordingVolume = item.AdjustRecordingVolume,
+                RecordingVolumePercent = item.RecordingVolumePercent
             }).ToList();
 
             var jsonString = JsonSerializer.Serialize(cleanedItems, _jsonSerializerOptions);
             await File.WriteAllTextAsync(saveFileDialog.FileName, jsonString);
+            _lastExportDirectory = Path.GetDirectoryName(saveFileDialog.FileName);
             await ShowDialogAsync("成功", "設定檔已儲存！");
         }
     }
@@ -554,6 +568,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             }
 
             var jsonString = File.ReadAllText(filePath);
+            RememberImportedDirectory(filePath);
             var importedItems = JsonSerializer.Deserialize<List<ActionItem>>(jsonString, _jsonSerializerOptions);
 
             if (importedItems != null)
@@ -575,6 +590,22 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         if (ActionItems.Count > 0)
         {
             ActionItems.Clear();
+        }
+    }
+
+    private void RememberImportedDirectory(string filePath)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                _lastImportedProfileDirectory = directory;
+            }
+        }
+        catch
+        {
+            // ignore invalid path formats
         }
     }
 
