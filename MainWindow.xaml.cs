@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -8,6 +9,7 @@ using Microsoft.Win32;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows.Threading;
 using AutoStarter.CoreAudio;
 using NAudio.CoreAudioApi;
 
@@ -29,13 +31,58 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     public ObservableCollection<ActionItem> ActionItems { get; set; }
 
+    private Task<Wpf.Ui.Controls.MessageBoxResult> ShowDialogAsync(string title, string content, string primaryText = "確定", string? closeText = null)
+    {
+        return ThemedDialogService.ShowAsync(this, title, content, primaryText, closeText);
+    }
+
+    private async Task<DeviceInfo?> PromptForAudioDeviceAsync(string? preselectedDeviceId = null)
+    {
+        var (playbackDevices, recordingDevices) = AudioDeviceService.GetDeviceLists(DeviceState.All);
+
+        if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
+        {
+            await ShowDialogAsync("提示", "找不到任何音訊裝置。");
+            return null;
+        }
+
+        var selectorWindow = new AudioDeviceSelectorWindow(playbackDevices, recordingDevices, preselectedDeviceId)
+        {
+            Owner = this
+        };
+
+        return selectorWindow.ShowDialog() == true ? selectorWindow.SelectedDevice : null;
+    }
 
     public MainWindow()
     {
         InitializeComponent();
         ActionItems = [];
+        ActionItems.CollectionChanged += ActionItems_CollectionChanged;
 
         DataContext = this;
+    }
+
+    private void ActionItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action != NotifyCollectionChangedAction.Add || e.NewItems == null || e.NewItems.Count == 0)
+        {
+            return;
+        }
+
+        var newestItem = e.NewItems[^1];
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (ActionsDataGrid == null || !IsLoaded)
+            {
+                return;
+            }
+
+            ActionsDataGrid.UpdateLayout();
+            ActionsDataGrid.ScrollIntoView(newestItem);
+            ActionsDataGrid.SelectedItem = newestItem;
+        }, DispatcherPriority.Background);
     }
 
     private void AddApp_Click(object sender, RoutedEventArgs e)
@@ -61,28 +108,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ActionItems.Add(new ActionItem { Type = ActionType.Delay, DelaySeconds = 5 });
     }
 
-    private void AddAudio_Click(object sender, RoutedEventArgs e)
+    private async void AddAudio_Click(object sender, RoutedEventArgs e)
     {
-        var (playbackDevices, recordingDevices) = AudioDeviceService.GetDeviceLists(DeviceState.All);
-
-        if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
+        var selectedDevice = await PromptForAudioDeviceAsync();
+        if (selectedDevice == null)
         {
-            MessageBox.Show("找不到任何音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.None);
             return;
         }
 
-        var selectorWindow = new AudioDeviceSelectorWindow(playbackDevices, recordingDevices);
-        if (selectorWindow.ShowDialog() == true && selectorWindow.SelectedDevice != null)
+        ActionItems.Add(new ActionItem
         {
-            var selectedDevice = selectorWindow.SelectedDevice;
-            ActionItems.Add(new ActionItem
-            {
-                Type = ActionType.SetAudioDevice,
-                AudioDeviceId = selectedDevice.ID,
-                AudioDeviceInstanceId = selectedDevice.InstanceId,
-                AudioDeviceName = selectedDevice.FriendlyName
-            });
-        }
+            Type = ActionType.SetAudioDevice,
+            AudioDeviceId = selectedDevice.ID,
+            AudioDeviceInstanceId = selectedDevice.InstanceId,
+            AudioDeviceName = selectedDevice.FriendlyName
+        });
     }
 
     private async void AddPowerPlan_Click(object sender, RoutedEventArgs e)
@@ -90,7 +130,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         var powerPlans = await LoadPowerPlans();
         if (powerPlans.Count == 0)
         {
-            MessageBox.Show("找不到任何電源計畫。", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            await ShowDialogAsync("錯誤", "找不到任何電源計畫。");
             return;
         }
 
@@ -106,27 +146,92 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
-    private void AddDisableAudio_Click(object sender, RoutedEventArgs e)
+    private async void AddDisableAudio_Click(object sender, RoutedEventArgs e)
     {
-        var (playbackDevices, recordingDevices) = AudioDeviceService.GetDeviceLists(DeviceState.All);
-
-        if (playbackDevices.Count == 0 && recordingDevices.Count == 0)
+        var selectedDevice = await PromptForAudioDeviceAsync();
+        if (selectedDevice == null)
         {
-            MessageBox.Show("找不到任何音訊裝置。", "提示", MessageBoxButton.OK, MessageBoxImage.None);
             return;
         }
 
-        var selectorWindow = new AudioDeviceSelectorWindow(playbackDevices, recordingDevices);
-        if (selectorWindow.ShowDialog() == true && selectorWindow.SelectedDevice != null)
+        ActionItems.Add(new ActionItem
         {
-            var selectedDevice = selectorWindow.SelectedDevice;
-            ActionItems.Add(new ActionItem
+            Type = ActionType.DisableAudioDevice,
+            AudioDeviceId = selectedDevice.ID,
+            AudioDeviceInstanceId = selectedDevice.InstanceId,
+            AudioDeviceName = selectedDevice.FriendlyName
+        });
+    }
+
+    private async void AddEnableAudio_Click(object sender, RoutedEventArgs e)
+    {
+        var selectedDevice = await PromptForAudioDeviceAsync();
+        if (selectedDevice == null)
+        {
+            return;
+        }
+
+        ActionItems.Add(new ActionItem
+        {
+            Type = ActionType.EnableAudioDevice,
+            AudioDeviceId = selectedDevice.ID,
+            AudioDeviceInstanceId = selectedDevice.InstanceId,
+            AudioDeviceName = selectedDevice.FriendlyName
+        });
+    }
+
+    private void AddAudioVolume_Click(object sender, RoutedEventArgs e)
+    {
+        var playbackVolume = TryGetDefaultEndpointVolume(DataFlow.Render);
+        var recordingVolume = TryGetDefaultEndpointVolume(DataFlow.Capture);
+
+        var volumeWindow = new AudioVolumeWindow(
+            adjustPlaybackVolume: playbackVolume.HasValue,
+            playbackVolumePercent: playbackVolume ?? 50,
+            adjustRecordingVolume: false,
+            recordingVolumePercent: recordingVolume ?? 50)
+        {
+            Owner = this
+        };
+
+        if (volumeWindow.ShowDialog() == true)
+        {
+            var action = new ActionItem
             {
-                Type = ActionType.DisableAudioDevice,
-                AudioDeviceId = selectedDevice.ID,
-                AudioDeviceInstanceId = selectedDevice.InstanceId,
-                AudioDeviceName = selectedDevice.FriendlyName
-            });
+                Type = ActionType.SetAudioVolume,
+                AdjustPlaybackVolume = volumeWindow.AdjustPlaybackVolume,
+                PlaybackVolumePercent = volumeWindow.AdjustPlaybackVolume ? volumeWindow.PlaybackVolumePercent : null,
+                AdjustRecordingVolume = volumeWindow.AdjustRecordingVolume,
+                RecordingVolumePercent = volumeWindow.AdjustRecordingVolume ? volumeWindow.RecordingVolumePercent : null
+            };
+
+            action.AudioVolumePercent = action.AdjustPlaybackVolume
+                ? action.PlaybackVolumePercent
+                : action.AdjustRecordingVolume
+                    ? action.RecordingVolumePercent
+                    : null;
+
+            ActionItems.Add(action);
+        }
+    }
+
+    private static int? TryGetDefaultEndpointVolume(DataFlow flow)
+    {
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            var device = enumerator.GetDefaultAudioEndpoint(flow, Role.Multimedia);
+            if (device?.AudioEndpointVolume == null)
+            {
+                return null;
+            }
+
+            var scalar = device.AudioEndpointVolume.MasterVolumeLevelScalar;
+            return Math.Clamp((int)Math.Round(scalar * 100), 0, 100);
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -202,6 +307,41 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 }
                 break;
 
+            case ActionType.SetAudioVolume:
+                var initialPlaybackPercent = selectedItem.PlaybackVolumePercent
+                    ?? selectedItem.AudioVolumePercent ?? 50;
+                var initialRecordingPercent = selectedItem.RecordingVolumePercent
+                    ?? selectedItem.AudioVolumePercent ?? 50;
+
+                var volumeWindow = new AudioVolumeWindow(
+                    adjustPlaybackVolume: selectedItem.AdjustPlaybackVolume,
+                    playbackVolumePercent: initialPlaybackPercent,
+                    adjustRecordingVolume: selectedItem.AdjustRecordingVolume,
+                    recordingVolumePercent: initialRecordingPercent)
+                {
+                    Owner = this
+                };
+
+                if (volumeWindow.ShowDialog() == true)
+                {
+                    selectedItem.AdjustPlaybackVolume = volumeWindow.AdjustPlaybackVolume;
+                    selectedItem.PlaybackVolumePercent = volumeWindow.AdjustPlaybackVolume
+                        ? volumeWindow.PlaybackVolumePercent
+                        : null;
+
+                    selectedItem.AdjustRecordingVolume = volumeWindow.AdjustRecordingVolume;
+                    selectedItem.RecordingVolumePercent = volumeWindow.AdjustRecordingVolume
+                        ? volumeWindow.RecordingVolumePercent
+                        : null;
+
+                    selectedItem.AudioVolumePercent = selectedItem.AdjustPlaybackVolume
+                        ? selectedItem.PlaybackVolumePercent
+                        : selectedItem.AdjustRecordingVolume
+                            ? selectedItem.RecordingVolumePercent
+                            : null;
+                }
+                return;
+
             default:
                 var editWindow = new EditActionWindow(selectedItem)
                 {
@@ -212,7 +352,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
-    private void ImportProfile_Click(object sender, RoutedEventArgs e)
+    private async void ImportProfile_Click(object sender, RoutedEventArgs e)
     {
         var openFileDialog = new OpenFileDialog
         {
@@ -238,7 +378,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"匯入設定檔時發生錯誤：\n{ex.Message}", "匯入失敗", MessageBoxButton.OK, MessageBoxImage.Error);
+                await ShowDialogAsync("匯入失敗", $"匯入設定檔時發生錯誤：\n{ex.Message}");
             }
         }
     }
@@ -267,23 +407,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 AudioDeviceInstanceId = item.AudioDeviceInstanceId,
                 AudioDeviceName = item.AudioDeviceName,
                 PowerPlanId = item.PowerPlanId,
-                PowerPlanName = item.PowerPlanName
+                PowerPlanName = item.PowerPlanName,
+                AudioVolumePercent = item.AudioVolumePercent
             }).ToList();
 
             var jsonString = JsonSerializer.Serialize(cleanedItems, _jsonSerializerOptions);
             await File.WriteAllTextAsync(saveFileDialog.FileName, jsonString);
-            MessageBox.Show("設定檔已儲存！", "成功", MessageBoxButton.OK, MessageBoxImage.None);
+            await ShowDialogAsync("成功", "設定檔已儲存！");
         }
     }
 
-    private void RegisterFileAssociation_Click(object sender, RoutedEventArgs e)
+    private async void RegisterFileAssociation_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             string? exePath = Environment.ProcessPath;
             if (string.IsNullOrEmpty(exePath))
             {
-                MessageBox.Show("無法取得主程式路徑。", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+                await ShowDialogAsync("錯誤", "無法取得主程式路徑。");
                 return;
             }
 
@@ -303,26 +444,26 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 }
             }
 
-            MessageBox.Show("檔案關聯已成功註冊！", "成功", MessageBoxButton.OK, MessageBoxImage.None);
+            await ShowDialogAsync("成功", "檔案關聯已成功註冊！");
         }
         catch (System.Exception ex)
         {
-            MessageBox.Show($"註冊檔案關聯失敗：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.None);
+            await ShowDialogAsync("錯誤", $"註冊檔案關聯失敗：{ex.Message}");
         }
     }
 
-    private void UnregisterFileAssociation_Click(object sender, RoutedEventArgs e)
+    private async void UnregisterFileAssociation_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             // DeleteSubKeyTree 不需要 using，因為它不返回 RegistryKey
             Registry.ClassesRoot.DeleteSubKeyTree(".autostart", false);
             Registry.ClassesRoot.DeleteSubKeyTree("AutoStarter.Profile", false);
-            MessageBox.Show("檔案關聯已成功移除！", "成功", MessageBoxButton.OK, MessageBoxImage.None);
+            await ShowDialogAsync("成功", "檔案關聯已成功移除！");
         }
         catch (System.Exception ex)
         {
-            MessageBox.Show($"移除檔案關聯失敗：{ex.Message}", "錯誤", MessageBoxButton.OK, MessageBoxImage.None);
+            await ShowDialogAsync("錯誤", $"移除檔案關聯失敗：{ex.Message}");
         }
     }
         private void ActionsDataGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -402,13 +543,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         e.Handled = true;
     }
 
-    private void ImportAutoStartFile(string filePath)
+    private async void ImportAutoStartFile(string filePath)
     {
         try
         {
             if (!File.Exists(filePath))
             {
-                MessageBox.Show($"檔案不存在：{filePath}", "錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+                await ShowDialogAsync("錯誤", $"檔案不存在：{filePath}");
                 return;
             }
 
@@ -425,7 +566,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"匯入設定檔時發生錯誤：\n{ex.Message}", "匯入失敗", MessageBoxButton.OK, MessageBoxImage.Error);
+            await ShowDialogAsync("匯入失敗", $"匯入設定檔時發生錯誤：\n{ex.Message}");
+        }
+    }
+
+    private void RemoveAll_Click(object sender, RoutedEventArgs e)
+    {
+        if (ActionItems.Count > 0)
+        {
+            ActionItems.Clear();
         }
     }
 

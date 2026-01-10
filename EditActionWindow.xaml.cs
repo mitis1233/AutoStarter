@@ -54,6 +54,11 @@ namespace AutoStarter
                     _delayTextBox = new TextBox { Text = _actionItem.DelaySeconds.ToString(), Width = 250 };
                     EditorStackPanel.Children.Add(_delayTextBox);
                     break;
+                case ActionType.SetAudioVolume:
+                    EditorStackPanel.Children.Add(new Label { Content = "音量百分比 (0-100):" });
+                    _delayTextBox = new TextBox { Text = (_actionItem.AudioVolumePercent ?? 50).ToString(), Width = 250 };
+                    EditorStackPanel.Children.Add(_delayTextBox);
+                    break;
                 
                 default:
                     EditorStackPanel.Children.Add(new TextBlock { Text = "此項目類型沒有可編輯的屬性。", Margin = new Thickness(5) });
@@ -95,6 +100,17 @@ namespace AutoStarter
                     {
                         MessageBox.Show("請輸入有效的數字。", "輸入錯誤", MessageBoxButton.OK, MessageBoxImage.Warning);
                         return; // Keep window open
+                    }
+                    break;
+                case ActionType.SetAudioVolume:
+                    if (_delayTextBox != null && int.TryParse(_delayTextBox.Text, out int volume) && volume is >= 0 and <= 100)
+                    {
+                        _actionItem.AudioVolumePercent = volume;
+                    }
+                    else
+                    {
+                        MessageBox.Show("請輸入 0 到 100 之間的整數。", "輸入錯誤", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
                     }
                     break;
             }

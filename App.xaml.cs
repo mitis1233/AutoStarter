@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -8,6 +9,7 @@ using System.Text.Json;
 using System.Management;
 using System.Text;
 using System.Linq;
+using System.Threading.Tasks;
 using NAudio.CoreAudioApi;
 
 namespace AutoStarter
@@ -103,6 +105,20 @@ namespace AutoStarter
                                     }
                                     break;
                                 }
+                                case ActionType.EnableAudioDevice:
+                                {
+                                    var resolvedId = ResolveAudioDeviceId(action);
+                                    if (!string.IsNullOrEmpty(resolvedId))
+                                    {
+                                        Dispatcher.Invoke(() => EnableAudioDevice(resolvedId));
+                                    }
+                                    break;
+                                }
+                                case ActionType.SetAudioVolume:
+                                {
+                                    Dispatcher.Invoke(() => ApplyVolumeAdjustment(action));
+                                    break;
+                                }
                                 case ActionType.SetPowerPlan:
                                     if (action.PowerPlanId != Guid.Empty)
                                     {
@@ -132,6 +148,78 @@ namespace AutoStarter
             {
                 var mainWindow = new MainWindow();
                 mainWindow.Show();
+            }
+        }
+
+        private static void SetAudioDeviceVolume(string deviceId, int volumePercent)
+        {
+            try
+            {
+                using var enumerator = new MMDeviceEnumerator();
+                var device = enumerator.GetDevice(deviceId);
+                if (device?.AudioEndpointVolume == null)
+                {
+                    return;
+                }
+
+                var clamped = Math.Clamp(volumePercent, 0, 100) / 100f;
+                device.AudioEndpointVolume.MasterVolumeLevelScalar = clamped;
+            }
+            catch (Exception)
+            {
+                //Log($"設定音量失敗：{ex.Message}");
+            }
+        }
+
+        private static void SetDefaultDeviceVolume(DataFlow flow, int volumePercent)
+        {
+            try
+            {
+                using var enumerator = new MMDeviceEnumerator();
+                var device = enumerator.GetDefaultAudioEndpoint(flow, Role.Multimedia);
+                if (device?.AudioEndpointVolume == null)
+                {
+                    return;
+                }
+
+                var clamped = Math.Clamp(volumePercent, 0, 100) / 100f;
+                device.AudioEndpointVolume.MasterVolumeLevelScalar = clamped;
+            }
+            catch (Exception)
+            {
+                //Log($"設定預設音量失敗：{ex.Message}");
+            }
+        }
+
+        private static void ApplyVolumeAdjustment(ActionItem action)
+        {
+            bool applied = false;
+
+            if (action.AdjustPlaybackVolume && action.PlaybackVolumePercent is int playbackPercent)
+            {
+                SetDefaultDeviceVolume(DataFlow.Render, playbackPercent);
+                applied = true;
+            }
+
+            if (action.AdjustRecordingVolume && action.RecordingVolumePercent is int recordingPercent)
+            {
+                SetDefaultDeviceVolume(DataFlow.Capture, recordingPercent);
+                applied = true;
+            }
+
+            if (!applied && action.AudioVolumePercent is int legacyPercent)
+            {
+                var resolvedId = ResolveAudioDeviceId(action);
+                if (!string.IsNullOrEmpty(resolvedId))
+                {
+                    SetAudioDeviceVolume(resolvedId, legacyPercent);
+                    applied = true;
+                }
+
+                if (!applied)
+                {
+                    SetDefaultDeviceVolume(DataFlow.Render, legacyPercent);
+                }
             }
         }
 

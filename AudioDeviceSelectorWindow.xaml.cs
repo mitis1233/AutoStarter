@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -8,14 +9,20 @@ namespace AutoStarter
     {
         private readonly List<DeviceInfo> _allPlaybackDevices;
         private readonly List<DeviceInfo> _allRecordingDevices;
+        private readonly string? _preselectedDeviceId;
+        private bool _preselectionApplied;
 
         public DeviceInfo? SelectedDevice { get; private set; }
 
-        public AudioDeviceSelectorWindow(IEnumerable<DeviceInfo> playbackDevices, IEnumerable<DeviceInfo> recordingDevices)
+        public AudioDeviceSelectorWindow(
+            IEnumerable<DeviceInfo> playbackDevices,
+            IEnumerable<DeviceInfo> recordingDevices,
+            string? preselectedDeviceId = null)
         {
             InitializeComponent();
             _allPlaybackDevices = playbackDevices.ToList();
             _allRecordingDevices = recordingDevices.ToList();
+            _preselectedDeviceId = preselectedDeviceId;
             UpdateDeviceLists();
         }
 
@@ -65,6 +72,8 @@ namespace AutoStarter
 
             PlaybackDeviceListBox.ItemsSource = FilterDevices(_allPlaybackDevices, showDisabled, showUnplugged);
             RecordingDeviceListBox.ItemsSource = FilterDevices(_allRecordingDevices, showDisabled, showUnplugged);
+
+            ApplyPreselectionIfNeeded();
         }
 
         private static IEnumerable<DeviceInfo> FilterDevices(IEnumerable<DeviceInfo> devices, bool showDisabled, bool showUnplugged)
@@ -73,6 +82,40 @@ namespace AutoStarter
                 device.State == NAudio.CoreAudioApi.DeviceState.Active ||
                 (showDisabled && device.State == NAudio.CoreAudioApi.DeviceState.Disabled) ||
                 (showUnplugged && (device.State == NAudio.CoreAudioApi.DeviceState.Unplugged || device.State == NAudio.CoreAudioApi.DeviceState.NotPresent)));
+        }
+
+        private void ApplyPreselectionIfNeeded()
+        {
+            if (_preselectionApplied || string.IsNullOrWhiteSpace(_preselectedDeviceId))
+            {
+                return;
+            }
+
+            bool playbackSelected = TrySelectDevice(PlaybackDeviceListBox);
+            bool recordingSelected = TrySelectDevice(RecordingDeviceListBox);
+
+            _preselectionApplied = playbackSelected || recordingSelected;
+        }
+
+        private bool TrySelectDevice(System.Windows.Controls.ListBox listBox)
+        {
+            if (listBox.ItemsSource is not IEnumerable<DeviceInfo> devices)
+            {
+                return false;
+            }
+
+            var match = devices.FirstOrDefault(device =>
+                device.ID != null &&
+                string.Equals(device.ID, _preselectedDeviceId, StringComparison.OrdinalIgnoreCase));
+
+            if (match == null)
+            {
+                return false;
+            }
+
+            listBox.SelectedItem = match;
+            listBox.ScrollIntoView(match);
+            return true;
         }
     }
 }

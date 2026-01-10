@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -11,6 +12,8 @@ public enum ActionType
     SetAudioDevice,
     Delay,
     DisableAudioDevice,
+    EnableAudioDevice,
+    SetAudioVolume,
     SetPowerPlan
 }
 
@@ -31,6 +34,76 @@ public class ActionItem : INotifyPropertyChanged
                 {
                     ForceMinimizeWindow = false;
                 }
+            }
+        }
+    }
+
+    private int? _audioVolumePercent;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int? AudioVolumePercent
+    {
+        get => _audioVolumePercent;
+        set
+        {
+            if (SetField(ref _audioVolumePercent, value))
+            {
+                OnPropertyChanged(nameof(Description));
+            }
+        }
+    }
+
+    private bool _adjustPlaybackVolume;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool AdjustPlaybackVolume
+    {
+        get => _adjustPlaybackVolume;
+        set
+        {
+            if (SetField(ref _adjustPlaybackVolume, value))
+            {
+                OnPropertyChanged(nameof(Description));
+            }
+        }
+    }
+
+    private bool _adjustRecordingVolume;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool AdjustRecordingVolume
+    {
+        get => _adjustRecordingVolume;
+        set
+        {
+            if (SetField(ref _adjustRecordingVolume, value))
+            {
+                OnPropertyChanged(nameof(Description));
+            }
+        }
+    }
+
+    private int? _playbackVolumePercent;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int? PlaybackVolumePercent
+    {
+        get => _playbackVolumePercent;
+        set
+        {
+            if (SetField(ref _playbackVolumePercent, value))
+            {
+                OnPropertyChanged(nameof(Description));
+            }
+        }
+    }
+
+    private int? _recordingVolumePercent;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int? RecordingVolumePercent
+    {
+        get => _recordingVolumePercent;
+        set
+        {
+            if (SetField(ref _recordingVolumePercent, value))
+            {
+                OnPropertyChanged(nameof(Description));
             }
         }
     }
@@ -161,6 +234,8 @@ public class ActionItem : INotifyPropertyChanged
         ActionType.Delay => "Delay",
         ActionType.SetAudioDevice => "Audio",
         ActionType.DisableAudioDevice => "DisableAudio",
+        ActionType.EnableAudioDevice => "EnableAudio",
+        ActionType.SetAudioVolume => "AudioVolume",
         ActionType.SetPowerPlan => "PowerPlan",
         _ => "Unknown"
     };
@@ -172,9 +247,42 @@ public class ActionItem : INotifyPropertyChanged
         ActionType.Delay => $"延遲 {DelaySeconds} 秒",
         ActionType.SetAudioDevice => string.IsNullOrEmpty(AudioDeviceName) ? "N/A" : AudioDeviceName,
         ActionType.DisableAudioDevice => string.IsNullOrEmpty(AudioDeviceName) ? "N/A" : AudioDeviceName,
+        ActionType.EnableAudioDevice => string.IsNullOrEmpty(AudioDeviceName) ? "N/A" : AudioDeviceName,
+        ActionType.SetAudioVolume => BuildAudioVolumeDescription(),
         ActionType.SetPowerPlan => string.IsNullOrEmpty(PowerPlanName) ? "N/A" : PowerPlanName,
         _ => "N/A"
     };
+
+    private string BuildAudioVolumeDescription()
+    {
+        var parts = new List<string>();
+        if (AdjustPlaybackVolume && PlaybackVolumePercent.HasValue)
+        {
+            parts.Add($"播放 {PlaybackVolumePercent.Value}%");
+        }
+
+        if (AdjustRecordingVolume && RecordingVolumePercent.HasValue)
+        {
+            parts.Add($"錄音 {RecordingVolumePercent.Value}%");
+        }
+
+        if (parts.Count > 0)
+        {
+            return string.Join(" / ", parts);
+        }
+
+        if (AudioVolumePercent.HasValue)
+        {
+            return $"音量 {AudioVolumePercent.Value}%";
+        }
+
+        if (!string.IsNullOrEmpty(AudioDeviceName))
+        {
+            return AudioDeviceName;
+        }
+
+        return "音量控制";
+    }
 
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
