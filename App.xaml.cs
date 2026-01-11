@@ -23,6 +23,7 @@ namespace AutoStarter
         };
 
         private static IReadOnlyList<DeviceInfo>? _deviceSnapshot;
+        private static string? _lastLaunchedDirectory;
 
         protected override async void OnStartup(StartupEventArgs e)
         {
@@ -52,7 +53,8 @@ namespace AutoStarter
                                         var startInfo = new ProcessStartInfo(action.FilePath)
                                         {
                                             Arguments = action.Arguments,
-                                            UseShellExecute = true
+                                            UseShellExecute = true,
+                                            WorkingDirectory = GetWorkingDirectory(action.FilePath)
                                         };
 
                                         // First, try the standard way.
@@ -62,6 +64,7 @@ namespace AutoStarter
                                         }
 
                                         var process = Process.Start(startInfo);
+                                        _lastLaunchedDirectory = startInfo.WorkingDirectory;
 
                                         // If minimization is requested, handle it asynchronously in the background
                                         if (process != null)
@@ -330,6 +333,24 @@ namespace AutoStarter
             }
 
             return _deviceSnapshot;
+        }
+
+        private static string GetWorkingDirectory(string filePath)
+        {
+            try
+            {
+                var directory = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    return directory;
+                }
+            }
+            catch
+            {
+                // ignored, fallback below
+            }
+
+            return _lastLaunchedDirectory ?? Environment.CurrentDirectory;
         }
 
         private static async Task MinimizeWindowAsync(Process process)

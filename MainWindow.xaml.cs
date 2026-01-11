@@ -289,6 +289,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             case ActionType.SetAudioDevice:
             case ActionType.DisableAudioDevice:
+            case ActionType.EnableAudioDevice:
             case ActionType.SetPowerPlan:
                 if (selectedItem.Type == ActionType.SetPowerPlan)
                 {
