@@ -1,10 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.IO;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Windows;
-using System.Windows.Input;
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
@@ -23,15 +20,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         public Guid Guid { get; set; } 
     }
 
-    private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
-    {
-        Converters = { new JsonStringEnumConverter() },
-        WriteIndented = true
-    };
-
     public ObservableCollection<ActionItem> ActionItems { get; set; }
     private string? _lastImportedProfileDirectory;
     private string? _lastExportDirectory;
+    private bool _suppressAutoScroll;
 
     private Task<Wpf.Ui.Controls.MessageBoxResult> ShowDialogAsync(string title, string content, string primaryText = "確定", string? closeText = null)
     {
@@ -71,6 +63,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private void ActionItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        if (_suppressAutoScroll)
+        {
+            return;
+        }
+
         if (e.Action != NotifyCollectionChangedAction.Add || e.NewItems == null || e.NewItems.Count == 0)
         {
             return;
@@ -369,25 +366,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         if (openFileDialog.ShowDialog() == true)
         {
-            try
-            {
-                var jsonString = File.ReadAllText(openFileDialog.FileName);
-                RememberImportedDirectory(openFileDialog.FileName);
-                var importedItems = JsonSerializer.Deserialize<List<ActionItem>>(jsonString, _jsonSerializerOptions);
-
-                if (importedItems != null)
-                {
-                    foreach (var item in importedItems)
-                    {
-                        ActionItems.Add(item);
-                    }
-
-                }
-            }
-            catch (Exception ex)
-            {
-                await ShowDialogAsync("匯入失敗", $"匯入設定檔時發生錯誤：\n{ex.Message}");
-            }
+            await ImportProfilesAsync(new[] { openFileDialog.FileName });
         }
     }
 
@@ -404,31 +383,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         if (saveFileDialog.ShowDialog() == true)
         {
-            // 創建一個清理後的副本，移除Arguments前後的空格
-            var cleanedItems = ActionItems.Select(item => new ActionItem
-            {
-                MinimizeWindow = item.MinimizeWindow,
-                ForceMinimizeWindow = item.ForceMinimizeWindow,
-                Type = item.Type,
-                FilePath = item.FilePath,
-                Arguments = string.IsNullOrWhiteSpace(item.Arguments) ? null : item.Arguments.Trim(),
-                DelaySeconds = item.DelaySeconds,
-                AudioDeviceId = item.AudioDeviceId,
-                AudioDeviceInstanceId = item.AudioDeviceInstanceId,
-                AudioDeviceName = item.AudioDeviceName,
-                PowerPlanId = item.PowerPlanId,
-                PowerPlanName = item.PowerPlanName,
-                AudioVolumePercent = item.AudioVolumePercent,
-                AdjustPlaybackVolume = item.AdjustPlaybackVolume,
-                PlaybackVolumePercent = item.PlaybackVolumePercent,
-                AdjustRecordingVolume = item.AdjustRecordingVolume,
-                RecordingVolumePercent = item.RecordingVolumePercent
-            }).ToList();
-
-            var jsonString = JsonSerializer.Serialize(cleanedItems, _jsonSerializerOptions);
-            await File.WriteAllTextAsync(saveFileDialog.FileName, jsonString);
+            await AutostartProfileService.SaveAsync(saveFileDialog.FileName, ActionItems);
             _lastExportDirectory = Path.GetDirectoryName(saveFileDialog.FileName);
-            await ShowDialogAsync("成功", "設定檔已儲存！");
         }
     }
 
@@ -481,12 +437,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             await ShowDialogAsync("錯誤", $"移除檔案關聯失敗：{ex.Message}");
         }
     }
-        private void ActionsDataGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-
-    }
-
-    private async Task<List<PowerPlan>> LoadPowerPlans()
+        private async Task<List<PowerPlan>> LoadPowerPlans()
     {
         var powerPlans = new List<PowerPlan>();
         var process = new Process
@@ -538,52 +489,89 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         e.Handled = true;
     }
 
-    private void ActionsDataGrid_Drop(object sender, DragEventArgs e)
+    private async void ActionsDataGrid_Drop(object sender, DragEventArgs e)
     {
         if (e.Data.GetDataPresent(DataFormats.FileDrop))
         {
             var files = (string[])e.Data.GetData(DataFormats.FileDrop);
             if (files != null)
             {
-                // 處理所有拖入的.autostart檔案
-                foreach (var file in files)
+                var autostartFiles = files
+                    .Where(file => file.EndsWith(".autostart", StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+                if (autostartFiles.Length > 0)
                 {
-                    if (file.EndsWith(".autostart", StringComparison.OrdinalIgnoreCase))
-                    {
-                        ImportAutoStartFile(file);
-                    }
+                    await ImportProfilesAsync(autostartFiles);
                 }
             }
         }
         e.Handled = true;
     }
 
-    private async void ImportAutoStartFile(string filePath)
+    private async Task ImportProfilesAsync(IEnumerable<string> filePaths)
     {
+        var importedItems = new List<ActionItem>();
+
+        foreach (var filePath in filePaths)
+        {
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    await ShowDialogAsync("錯誤", $"檔案不存在：{filePath}");
+                    continue;
+                }
+
+                var items = await AutostartProfileService.LoadAsync(filePath);
+                RememberImportedDirectory(filePath);
+
+                if (items.Count > 0)
+                {
+                    importedItems.AddRange(items);
+                }
+            }
+            catch (Exception ex)
+            {
+                await ShowDialogAsync("匯入失敗", $"匯入設定檔時發生錯誤：\n{ex.Message}");
+            }
+        }
+
+        AddActionItems(importedItems);
+    }
+
+    private void AddActionItems(IReadOnlyList<ActionItem> items)
+    {
+        if (items == null || items.Count == 0)
+        {
+            return;
+        }
+
+        _suppressAutoScroll = true;
         try
         {
-            if (!File.Exists(filePath))
+            foreach (var item in items)
             {
-                await ShowDialogAsync("錯誤", $"檔案不存在：{filePath}");
+                ActionItems.Add(item);
+            }
+        }
+        finally
+        {
+            _suppressAutoScroll = false;
+        }
+
+        var newestItem = items[^1];
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (ActionsDataGrid == null || !IsLoaded)
+            {
                 return;
             }
 
-            var jsonString = File.ReadAllText(filePath);
-            RememberImportedDirectory(filePath);
-            var importedItems = JsonSerializer.Deserialize<List<ActionItem>>(jsonString, _jsonSerializerOptions);
-
-            if (importedItems != null)
-            {
-                foreach (var item in importedItems)
-                {
-                    ActionItems.Add(item);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            await ShowDialogAsync("匯入失敗", $"匯入設定檔時發生錯誤：\n{ex.Message}");
-        }
+            ActionsDataGrid.UpdateLayout();
+            ActionsDataGrid.ScrollIntoView(newestItem);
+            ActionsDataGrid.SelectedItem = newestItem;
+        }, DispatcherPriority.Background);
     }
 
     private void RemoveAll_Click(object sender, RoutedEventArgs e)

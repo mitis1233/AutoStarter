@@ -62,8 +62,6 @@ namespace AutoStarter
                 
                 default:
                     EditorStackPanel.Children.Add(new TextBlock { Text = "此項目類型沒有可編輯的屬性。", Margin = new Thickness(5) });
-                    // Disable OK button if there's nothing to edit
-                    if (FindName("OkButton") is Button okButton) { okButton.IsEnabled = false; }
                     break;
             }
         }

@@ -10,13 +10,12 @@
     <Authors>$(AssemblyName)</Authors>
     <SupportedOSPlatformVersion>10.0.26100.0</SupportedOSPlatformVersion>
     <ApplicationIcon>ICON.ico</ApplicationIcon>
-    <Version>1.9</Version>
+    <Version>2.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
-    <PackageReference Include="System.Management" Version="10.0.1" />
     <PackageReference Include="WPF-UI" Version="3.0.5" />
   </ItemGroup>
 

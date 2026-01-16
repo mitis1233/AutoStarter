@@ -61,7 +61,6 @@
                   CanUserSortColumns="False"
                   SelectionMode="Extended"
                   HeadersVisibility="Column" 
-                  SelectionChanged="ActionsDataGrid_SelectionChanged"
                   AllowDrop="True"
                   Drop="ActionsDataGrid_Drop"
                   DragOver="ActionsDataGrid_DragOver"

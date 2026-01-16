@@ -20,7 +20,7 @@ namespace AutoStarter.CoreAudio
                 return result;
             }
 
-            throw error ?? new COMException("Unable to enumerate audio devices.");
+            throw error ?? new COMException("無法取得音訊裝置清單");
         }
 
         public static List<DeviceInfo> GetAllDevices(DeviceState state)
