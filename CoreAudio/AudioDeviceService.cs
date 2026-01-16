@@ -20,7 +20,7 @@ namespace AutoStarter.CoreAudio
                 return result;
             }
 
-            throw error ?? new COMException("µLªk¨ú±o­µ°T¸Ë¸m²M³æ");
+            throw error ?? new COMException("ç„¡æ³•å–å¾—éŸ³è¨Šè£ç½®æ¸…å–®");
         }
 
         public static List<DeviceInfo> GetAllDevices(DeviceState state)
